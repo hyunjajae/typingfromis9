@@ -1813,8 +1813,7 @@ function renderMarquee() {
     img.alt = "";
     img.decoding = "async";
     img.addEventListener("error", () => img.remove());
-    // 아직 주소를 넣지 않습니다. 화면에 들어올 때 아래 관찰자가 넣어줍니다.
-    img.dataset.src = s.cover;
+    img.dataset.src = s.cover;   // 아래에서 한꺼번에 넣어줍니다
 
     box.appendChild(img);
     box.title = s.title + " · " + (s.album || "");
@@ -1827,31 +1826,13 @@ function renderMarquee() {
   }
   track.replaceChildren(frag);
 
-  /* 첫 화면을 가볍게 하려고 커버를 나눠서 받아옵니다.
-     처음 보이는 만큼만 바로 받고, 나머지는 화면이 다 뜬 뒤 하나씩 채웁니다.
-
-     ※ "화면에 보일 때 받기"(IntersectionObserver)는 여기서 쓰면 안 됩니다.
-        이 띠는 transform 애니메이션으로 움직이는데 그건 GPU 쪽에서 처리돼서,
-        IntersectionObserver 가 보는 좌표는 처음 위치에서 바뀌지 않습니다.
-        그래서 처음에 화면 밖이던 커버는 영영 안 불러와지고 색 덩어리로 남습니다. */
-  const imgs = Array.prototype.slice.call(track.querySelectorAll("img[data-src]"));
-  const show = (im) => {
-    if (im && im.dataset.src) { im.src = im.dataset.src; delete im.dataset.src; }
-  };
-
-  // 1) 처음 화면에 보이는 만큼은 바로
-  imgs.slice(0, 8).forEach(show);
-
-  // 2) 나머지는 페이지가 다 뜬 뒤 하나씩 (다른 파일 받는 걸 방해하지 않게)
-  let i = 8;
-  const loadNext = () => {
-    if (i >= imgs.length) return;
-    show(imgs[i++]);
-    setTimeout(loadNext, 120);
-  };
-  const kick = () => setTimeout(loadNext, 700);
-  if (document.readyState === "complete") kick();
-  else window.addEventListener("load", kick, { once: true });
+  /* 커버는 그냥 한 번에 다 불러옵니다.
+     나눠서 받아봐야 전체 용량(약 1.7MB)은 똑같은데,
+     채워지는 동안 빈 칸이 색 덩어리로 보이는 게 더 거슬립니다. */
+  track.querySelectorAll("img[data-src]").forEach((im) => {
+    im.src = im.dataset.src;
+    delete im.dataset.src;
+  });
 }
 
 /** 02번 카드 미리보기에 앨범 커버 한 장을 넣습니다 (열 때마다 랜덤) */
