@@ -212,13 +212,49 @@ function isPartialMatch(typedCh, targetCh) {
 /* ======================= 2. 화면 전환 / 테마 ======================= */
 
 /** id 에 해당하는 화면만 보여줍니다 */
+/** 각 화면에서 "뒤로" 를 누르면 갈 곳 */
+const BACK_TO = {
+  "screen-select": "screen-home",
+  "screen-lyrics": "screen-select",
+  "screen-lyrics-result": "screen-select",
+  "screen-quiz-intro": "screen-home",
+  "screen-quiz": "screen-quiz-intro",
+  "screen-quiz-result": "screen-quiz-intro",
+  "screen-ranking": "screen-home"
+};
+
+let currentScreen = "screen-home";
+
 function showScreen(id) {
+  currentScreen = id;
   $$(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
-  // 플레이 화면에서는 배경 스크롤을 잠급니다
+
+  // 플레이 화면에서는 배경 스크롤을 잠급니다.
+  // (모바일에서는 키보드가 올라오면 스크롤이 필요해서 잠그지 않습니다)
   const playing = id === "screen-lyrics" || id === "screen-quiz";
-  document.body.classList.toggle("is-playing", playing);
+  const narrow = window.matchMedia("(max-width: 760px)").matches;
+  document.body.classList.toggle("is-playing", playing && !narrow);
   $("#hud").hidden = !playing;
+
+  // 시작 화면에서는 뒤로 가기를 숨깁니다
+  $("#btnBack").hidden = !BACK_TO[id];
+
   window.scrollTo(0, 0);
+}
+
+/** 지금 화면 기준으로 한 단계 뒤로 갑니다 */
+function goBack() {
+  const to = BACK_TO[currentScreen];
+  if (!to) return;
+
+  // 게임 중이었다면 정리부터
+  if (currentScreen === "screen-lyrics") Lyrics.quit();
+  if (currentScreen === "screen-quiz") Quiz.quit();
+  if (currentScreen === "screen-lyrics-result") setStageBg("");
+
+  if (to === "screen-home") { goHome(); return; }
+  if (to === "screen-quiz-intro") { Quiz.showIntro(); return; }
+  showScreen(to);
 }
 
 /** SONG_ORDER 에 적힌 순서대로 곡을 정렬합니다.
@@ -479,6 +515,20 @@ const Lyrics = (() => {
   const elNext2 = $("#lineNext2");
   const input = $("#typeInput");
 
+  /* ---- 곡별 최고 기록 (내 브라우저에 저장) ---- */
+  const BEST_KEY = "f9typing_lyrics_best_";
+
+  function loadBest(id) {
+    try {
+      const raw = localStorage.getItem(BEST_KEY + id);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function saveBest(id, rec) {
+    try { localStorage.setItem(BEST_KEY + id, JSON.stringify(rec)); } catch (e) {}
+  }
+
   /* ---- 곡 목록 그리기 ---- */
   function renderSongList() {
     const grid = $("#songGrid");
@@ -523,7 +573,9 @@ const Lyrics = (() => {
 
       btn.querySelector(".song-card__title").textContent = s.title;
       btn.querySelector(".song-card__album").textContent = s.album || "";
-      btn.querySelector(".song-card__meta").textContent = s.lyrics.length + "줄";
+      const best = loadBest(s.id);
+      btn.querySelector(".song-card__meta").textContent =
+        best ? "내 최고 " + best.cpm + " CPM" : s.lyrics.length + "줄";
       btn.addEventListener("click", () => start(s));
       grid.appendChild(btn);
     });
@@ -843,12 +895,49 @@ const Lyrics = (() => {
     const min = Math.max(sec / 60, 1 / 60);
     const acc = stat.typed ? Math.round(((stat.typed - stat.wrong) / stat.typed) * 100) : 100;
 
+    const cpm = Math.round(stat.strokes / min);
     $("#resultSongTitle").textContent = song.title;
-    $("#rsCpm").textContent = Math.round(stat.strokes / min);
+    $("#rsCpm").textContent = cpm;
     $("#rsAcc").textContent = acc + "%";
     $("#rsTime").textContent = fmtTime(sec);
     $("#rsWpm").textContent = Math.round((stat.typed / 5) / min);
 
+    // 곡별 최고 기록 (타수가 더 높으면 갱신)
+    const prev = loadBest(song.id);
+    const isBest = stat.typed >= 30 && (!prev || cpm > prev.cpm);
+    if (isBest) saveBest(song.id, { cpm: cpm, acc: acc, sec: Math.round(sec) });
+
+    const shown = isBest ? { cpm: cpm, acc: acc } : prev;
+    $("#rsBest").textContent = shown ? shown.cpm : "—";
+    $("#rsBestSub").textContent = shown ? "정확도 " + shown.acc + "%" : "Best";
+    $("#lyricsBestBadge").hidden = !(isBest && prev);   // 첫 판은 신기록 표시 안 함
+
+    Share.set({
+      modeLabel: "가사 타이핑",
+      title: song.title,
+      sub: song.album || "",
+      color: song.color || "#0f9d76",
+      cover: song.cover || "",
+      big: String(cpm),
+      bigLabel: "CPM  (분당 타수)",
+      stats: [
+        { label: "정확도", value: acc + "%" },
+        { label: "소요 시간", value: fmtTime(sec) },
+        { label: "내 최고", value: (shown ? shown.cpm : cpm) + "" }
+      ],
+      shareText: "fromis_9 «" + song.title + "» 가사 타이핑 " + cpm + " CPM / 정확도 " + acc + "%\n#fromis_9 #프로미스나인 #플로버"
+    });
+
+    Ranking.offer({
+      mode: "lyrics",
+      songId: song.id,
+      cpm: stat.strokes / min,
+      accuracy: acc,
+      seconds: sec,
+      typed: stat.typed
+    });
+
+    pickResultArt("#artLyrics");
     showScreen("screen-lyrics-result");
   }
 
@@ -985,6 +1074,8 @@ const Quiz = (() => {
 
   /* ---- 시작 안내 화면 ---- */
   function showIntro() {
+    // 정답 공개 때 커버가 깜빡이지 않도록 여기서 미리 받아둡니다
+    preloadCovers();
     const pool = SONGS.filter((s) => s.intro);
     $("#qiCount").textContent = pool.length;
     const best = loadBest(pool.length);
@@ -1169,6 +1260,31 @@ const Quiz = (() => {
     $("#qrPass").textContent = passed;
     $("#qrBest").textContent = fmtClock(isNewBest ? sec : prev.sec);
 
+    Share.set({
+      modeLabel: "인트로 퀴즈 스피드런",
+      title: fmtClock(sec),
+      sub: count + "곡 완주",
+      color: "#0f9d76",
+      cover: "images/logo.png",
+      big: fmtClock(sec),
+      bigLabel: "전체 완주 시간",
+      stats: [
+        { label: "문제 수", value: String(count) },
+        { label: "틀린 횟수", value: String(wrong) },
+        { label: "패스", value: String(passed) }
+      ],
+      shareText: "fromis_9 인트로 퀴즈 " + count + "곡을 " + fmtClock(sec) + " 만에 완주했어요! (오답 " + wrong + "회)\n#fromis_9 #프로미스나인 #플로버"
+    });
+
+    Ranking.offer({
+      mode: "quiz",
+      seconds: sec,
+      count: count,
+      misses: wrong,
+      passed: passed
+    });
+
+    pickResultArt("#artQuiz");
     showScreen("screen-quiz-result");
   }
 
@@ -1215,6 +1331,458 @@ const Quiz = (() => {
   return { showIntro, start, quit };
 })();
 
+/* ======================= 5-a. 결과 공유 =======================
+   결과를 정사각형 카드 이미지로 그려서 저장하거나 SNS 로 보냅니다.
+   외부 라이브러리 없이 캔버스에 직접 그립니다. */
+
+const Share = (() => {
+  const SIZE = 1080;                 // SNS 에 올리기 좋은 정사각형
+  let last = null;                   // 마지막 결과 (카드 그릴 재료)
+
+  const FONT = '"Pretendard Variable", Pretendard, "Malgun Gothic", sans-serif';
+
+  /** 결과 화면이 뜰 때 재료를 넣어둡니다 */
+  function set(data) { last = data; }
+
+  /** 둥근 사각형 경로 */
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  /** 결과 카드를 그려서 canvas 를 돌려줍니다 */
+  async function draw() {
+    if (!last) return null;
+    try { await document.fonts.ready; } catch (e) {}
+
+    const c = document.createElement("canvas");
+    c.width = SIZE; c.height = SIZE;
+    const ctx = c.getContext("2d");
+
+    // 배경 : 곡 대표색에서 흰색으로 흐르는 그라데이션
+    const g = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+    g.addColorStop(0, last.color || "#0f9d76");
+    g.addColorStop(1, "#0d1512");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // 살짝 어둡게 덮어 글씨가 잘 보이게
+    ctx.fillStyle = "rgba(8,12,10,.5)";
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // 앨범 커버
+    if (last.cover) {
+      const img = await loadImg(last.cover).catch(() => null);
+      if (img) {
+        ctx.save();
+        roundRect(ctx, 110, 150, 260, 260, 26);
+        ctx.clip();
+        ctx.drawImage(img, 110, 150, 260, 260);
+        ctx.restore();
+      }
+    }
+
+    ctx.textBaseline = "alphabetic";
+
+    // 모드 이름
+    ctx.fillStyle = "rgba(255,255,255,.65)";
+    ctx.font = "600 30px " + FONT;
+    ctx.fillText(last.modeLabel, 410, 212);
+
+    // 곡 제목 / 제목 자리
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 62px " + FONT;
+    fitText(ctx, last.title, 410, 292, 560, 62);
+
+    if (last.sub) {
+      ctx.fillStyle = "rgba(255,255,255,.55)";
+      ctx.font = "500 28px " + FONT;
+      ctx.fillText(last.sub, 410, 344);
+    }
+
+    // 가장 큰 수치
+    ctx.fillStyle = "#6ef0be";
+    ctx.font = "800 168px " + FONT;
+    ctx.fillText(last.big, 110, 610);
+
+    ctx.fillStyle = "rgba(255,255,255,.6)";
+    ctx.font = "600 34px " + FONT;
+    ctx.fillText(last.bigLabel, 112, 660);
+
+    // 보조 수치 3개
+    const boxW = 280, boxH = 150, gap = 20, startX = 110, y = 720;
+    last.stats.slice(0, 3).forEach((s, i) => {
+      const x = startX + i * (boxW + gap);
+      ctx.fillStyle = "rgba(255,255,255,.09)";
+      roundRect(ctx, x, y, boxW, boxH, 22);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255,255,255,.6)";
+      ctx.font = "600 26px " + FONT;
+      ctx.fillText(s.label, x + 26, y + 54);
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "800 54px " + FONT;
+      ctx.fillText(s.value, x + 26, y + 116);
+    });
+
+    // 아래 사이트 이름
+    ctx.fillStyle = "rgba(255,255,255,.5)";
+    ctx.font = "600 28px " + FONT;
+    ctx.fillText("fromis_9 TYPING  ·  플로버를 위한 타이핑 게임", 110, 960);
+
+    return c;
+  }
+
+  function loadImg(src) {
+    return new Promise((ok, no) => {
+      const im = new Image();
+      im.onload = () => ok(im);
+      im.onerror = no;
+      im.src = src;
+    });
+  }
+
+  /** 글자가 길면 자동으로 줄여서 한 줄에 맞춥니다 */
+  function fitText(ctx, text, x, y, maxW, size) {
+    let s = size;
+    while (s > 26 && ctx.measureText(text).width > maxW) {
+      s -= 4;
+      ctx.font = "800 " + s + "px " + FONT;
+    }
+    ctx.fillText(text, x, y);
+  }
+
+  const toBlob = (c) => new Promise((ok) => c.toBlob(ok, "image/png"));
+
+  /** 이미지로 저장 */
+  async function saveImage(msgEl) {
+    const c = await draw();
+    if (!c) return;
+    const blob = await toBlob(c);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "fromis9-typing-" + Date.now() + ".png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    say(msgEl, "이미지를 저장했습니다!", true);
+  }
+
+  /** 공유하기 — 휴대폰은 공유창, PC 는 X(트위터) 또는 복사 */
+  async function share(msgEl) {
+    const text = last.shareText;
+    const c = await draw();
+    const blob = c ? await toBlob(c) : null;
+    const file = blob ? new File([blob], "fromis9-typing.png", { type: "image/png" }) : null;
+
+    // 1) 휴대폰 : 사진까지 함께 공유창 띄우기
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text: text });
+        say(msgEl, "공유했습니다!", true);
+        return;
+      } catch (e) { if (e.name === "AbortError") return; }
+    }
+    // 2) 글만이라도 공유창
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: text });
+        say(msgEl, "공유했습니다!", true);
+        return;
+      } catch (e) { if (e.name === "AbortError") return; }
+    }
+    // 3) PC : X(트위터) 새 창 + 글 복사
+    try { await navigator.clipboard.writeText(text); } catch (e) {}
+    window.open("https://x.com/intent/post?text=" + encodeURIComponent(text), "_blank", "noopener");
+    say(msgEl, "글을 복사했어요. 이미지는 '이미지로 저장' 후 첨부해 주세요.", true);
+  }
+
+  function say(el, msg, ok) {
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "share-msg " + (ok ? "is-ok" : "is-ng");
+    setTimeout(() => { el.textContent = ""; }, 4000);
+  }
+
+  function init() {
+    $("#btnSaveImgLyrics").addEventListener("click", () => saveImage($("#shareMsgLyrics")));
+    $("#btnShareLyrics").addEventListener("click", () => share($("#shareMsgLyrics")));
+    $("#btnSaveImgQuiz").addEventListener("click", () => saveImage($("#shareMsgQuiz")));
+    $("#btnShareQuiz").addEventListener("click", () => share($("#shareMsgQuiz")));
+  }
+
+  return { init, set, draw };
+})();
+
+/* ======================= 5-b. 랭킹 =======================
+   Supabase 라는 무료 데이터 저장소에 기록을 올리고 받아옵니다.
+   별도 라이브러리 없이 fetch 만으로 통신합니다.
+   data/ranking-config.js 의 enabled 가 false 면 이 기능은 통째로 숨겨집니다. */
+
+const Ranking = (() => {
+  const NICK_KEY = "f9typing_nick";
+  const on = () => typeof RANKING !== "undefined" && RANKING.enabled && RANKING.url && RANKING.anonKey;
+
+  let lastMode = "quiz";     // 랭킹 화면에서 보고 있는 모드
+  let pending = null;        // 등록 대기 중인 기록
+  let nickAfter = null;      // 닉네임 입력이 끝난 뒤 할 일
+
+  /* ---- 닉네임 ---- */
+  const getNick = () => localStorage.getItem(NICK_KEY) || "";
+
+  function askNick(then) {
+    nickAfter = then || null;
+    $("#nickInput").value = getNick();
+    $("#nickErr").textContent = "";
+    $("#nickModal").hidden = false;
+    setTimeout(() => $("#nickInput").focus(), 50);
+  }
+
+  function saveNick() {
+    const v = $("#nickInput").value.trim().replace(/\s+/g, " ");
+    if (v.length < 2 || v.length > 12) {
+      $("#nickErr").textContent = "2~12글자로 지어주세요.";
+      return;
+    }
+    // 이름에 쓸 수 없는 글자 거르기
+    if (/[<>&"'\\/]/.test(v)) {
+      $("#nickErr").textContent = "< > & \" ' / \\ 는 쓸 수 없어요.";
+      return;
+    }
+    localStorage.setItem(NICK_KEY, v);
+    $("#nickModal").hidden = true;
+    paintNick();
+    const fn = nickAfter; nickAfter = null;
+    if (fn) fn();
+  }
+
+  function paintNick() {
+    const n = getNick() || "—";
+    $("#nickLyrics").textContent = n;
+    $("#nickQuiz").textContent = n;
+  }
+
+  /* ---- 말도 안 되는 기록 거르기 ----
+     클라이언트에서 한 번, Supabase 쪽 CHECK 규칙에서 또 한 번 걸러집니다. */
+  function checkPlausible(rec) {
+    if (rec.mode === "lyrics") {
+      if (!(rec.seconds >= 10)) return "10초도 안 걸린 기록은 등록할 수 없어요.";
+      if (!(rec.typed >= 30)) return "30글자 이상 쳐야 등록할 수 있어요.";
+      if (!(rec.cpm >= 1 && rec.cpm <= 1500)) return "타수가 정상 범위를 벗어났어요. (1~1500)";
+      if (!(rec.accuracy >= 0 && rec.accuracy <= 100)) return "정확도 값이 이상해요.";
+      if (rec.accuracy < 50) return "정확도 50% 이상이어야 등록할 수 있어요.";
+    } else {
+      if (rec.passed > 0) return "패스한 판은 랭킹에 올릴 수 없어요. 전부 맞혀보세요!";
+      if (!(rec.seconds >= rec.count * 1.5)) return "너무 빠른 기록이라 등록할 수 없어요.";
+      if (!(rec.seconds <= 3600)) return "1시간이 넘는 기록은 등록할 수 없어요.";
+      if (!(rec.misses >= 0 && rec.misses <= 999)) return "틀린 횟수 값이 이상해요.";
+    }
+    return null;   // 통과
+  }
+
+  /* ---- Supabase 통신 ---- */
+
+  /** 주소 뒤에 /rest/v1 이 붙어 있든 없든 똑같이 동작하게 정리합니다 */
+  const apiBase = () =>
+    String(RANKING.url || "").trim()
+      .replace(/\/+$/, "")            // 끝의 / 제거
+      .replace(/\/rest\/v1$/, "")     // 끝의 /rest/v1 제거
+    + "/rest/v1";
+
+  const headers = () => ({
+    "apikey": RANKING.anonKey,
+    "Authorization": "Bearer " + RANKING.anonKey,
+    "Content-Type": "application/json"
+  });
+
+  async function send(rec) {
+    const body = {
+      nickname: getNick(),
+      mode: rec.mode,
+      song_id: rec.mode === "lyrics" ? rec.songId : null,
+      cpm: rec.mode === "lyrics" ? Math.round(rec.cpm) : null,
+      accuracy: rec.mode === "lyrics" ? Math.round(rec.accuracy) : null,
+      seconds: rec.mode === "quiz" ? Number(rec.seconds.toFixed(2)) : null,
+      misses: rec.mode === "quiz" ? rec.misses : null
+    };
+    const res = await fetch(apiBase() + "/scores", {
+      method: "POST",
+      headers: Object.assign(headers(), { "Prefer": "return=minimal" }),
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error("등록 실패 (" + res.status + ")");
+  }
+
+  async function fetchTop(mode, songId) {
+    let q = apiBase() + "/scores?select=nickname,cpm,accuracy,seconds,misses,created_at" +
+            "&mode=eq." + mode + "&limit=" + (RANKING.topN || 20);
+    q += mode === "quiz" ? "&order=seconds.asc" : "&order=cpm.desc";
+    if (mode === "lyrics" && songId) q += "&song_id=eq." + encodeURIComponent(songId);
+    const res = await fetch(q, { headers: headers() });
+    if (!res.ok) throw new Error("불러오기 실패 (" + res.status + ")");
+    return res.json();
+  }
+
+  /* ---- 결과 화면의 "랭킹에 등록" ---- */
+  function offer(rec) {
+    pending = rec;
+    const box = rec.mode === "lyrics" ? $("#submitLyrics") : $("#submitQuiz");
+    const msg = rec.mode === "lyrics" ? $("#msgLyrics") : $("#msgQuiz");
+    const btn = rec.mode === "lyrics" ? $("#btnSubmitLyrics") : $("#btnSubmitQuiz");
+    if (!on()) { box.hidden = true; return; }
+
+    box.hidden = false;
+    btn.disabled = false;
+    btn.textContent = "🏆 랭킹에 등록";
+    msg.className = "submit-box__msg";
+    paintNick();
+
+    // 등록할 수 없는 기록이면 미리 알려줍니다
+    const why = checkPlausible(rec);
+    if (why) {
+      btn.disabled = true;
+      msg.textContent = why;
+      msg.className = "submit-box__msg is-ng";
+    } else {
+      msg.textContent = "";
+    }
+  }
+
+  async function submit() {
+    if (!pending || !on()) return;
+    const mode = pending.mode;
+    const msg = mode === "lyrics" ? $("#msgLyrics") : $("#msgQuiz");
+    const btn = mode === "lyrics" ? $("#btnSubmitLyrics") : $("#btnSubmitQuiz");
+
+    const why = checkPlausible(pending);
+    if (why) { msg.textContent = why; msg.className = "submit-box__msg is-ng"; return; }
+    if (!getNick()) { askNick(submit); return; }
+
+    btn.disabled = true;
+    btn.textContent = "등록 중…";
+    msg.textContent = "";
+    try {
+      await send(pending);
+      btn.textContent = "등록 완료";
+      msg.textContent = "랭킹에 올렸습니다! 아래 '랭킹 보기'에서 확인하세요.";
+      msg.className = "submit-box__msg is-ok";
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = "🏆 랭킹에 등록";
+      msg.textContent = e.message + " — 인터넷 연결이나 Supabase 설정을 확인해 주세요.";
+      msg.className = "submit-box__msg is-ng";
+    }
+  }
+
+  /* ---- 랭킹 화면 ---- */
+  function open() {
+    if (!on()) return;
+    showScreen("screen-ranking");
+    load();
+  }
+
+  function setMode(mode) {
+    lastMode = mode;
+    $("#tabQuiz").classList.toggle("is-on", mode === "quiz");
+    $("#tabLyrics").classList.toggle("is-on", mode === "lyrics");
+    $("#rankSong").hidden = mode !== "lyrics";
+    load();
+  }
+
+  async function load() {
+    const list = $("#rankList");
+    list.innerHTML = '<p class="rank-empty">불러오는 중…</p>';
+    try {
+      const songId = lastMode === "lyrics" ? $("#rankSong").value : null;
+      const rows = await fetchTop(lastMode, songId);
+      paint(rows);
+    } catch (e) {
+      list.innerHTML = '<p class="rank-empty">' + e.message + '</p>';
+    }
+  }
+
+  function paint(rows) {
+    const list = $("#rankList");
+    if (!rows.length) {
+      list.innerHTML = '<p class="rank-empty">아직 등록된 기록이 없습니다. 첫 번째 기록을 남겨보세요!</p>';
+      return;
+    }
+    const me = getNick();
+    const frag = document.createDocumentFragment();
+
+    rows.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = "rank-row" + (r.nickname === me ? " is-me" : "");
+
+      const no = document.createElement("div");
+      no.className = "rank-row__no";
+      no.textContent = i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1;
+
+      const nick = document.createElement("div");
+      nick.className = "rank-row__nick";
+      nick.textContent = r.nickname;
+
+      const sub = document.createElement("div");
+      sub.className = "rank-row__sub";
+      sub.textContent = lastMode === "quiz"
+        ? "오답 " + (r.misses ?? 0) + "회"
+        : "정확도 " + (r.accuracy ?? 0) + "%";
+
+      const score = document.createElement("div");
+      score.className = "rank-row__score";
+      score.textContent = lastMode === "quiz" ? fmtClock(r.seconds) : r.cpm + " CPM";
+
+      row.append(no, nick, sub, score);
+      frag.appendChild(row);
+    });
+    list.replaceChildren(frag);
+  }
+
+  /* ---- 초기화 ---- */
+  function init() {
+    if (!on()) return;   // 설정 전에는 랭킹 관련 UI를 모두 숨겨둡니다
+
+    $("#homeRanking").hidden = false;
+    paintNick();
+
+    // 가사 모드 곡 선택 채우기
+    const sel = $("#rankSong");
+    orderedSongs().filter((s) => s.lyrics && s.lyrics.length).forEach((s) => {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.title;
+      sel.appendChild(o);
+    });
+
+    $("#btnOpenRanking").addEventListener("click", open);
+    $("#btnHomeFromRanking").addEventListener("click", goHome);
+    $("#tabQuiz").addEventListener("click", () => setMode("quiz"));
+    $("#tabLyrics").addEventListener("click", () => setMode("lyrics"));
+    $("#rankSong").addEventListener("change", load);
+    $("#btnRankRefresh").addEventListener("click", load);
+
+    $("#btnSubmitLyrics").addEventListener("click", submit);
+    $("#btnSubmitQuiz").addEventListener("click", submit);
+    $("#btnNickLyrics").addEventListener("click", () => askNick());
+    $("#btnNickQuiz").addEventListener("click", () => askNick());
+
+    $("#btnNickSave").addEventListener("click", saveNick);
+    $("#btnNickCancel").addEventListener("click", () => { $("#nickModal").hidden = true; nickAfter = null; });
+    $("#nickInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); saveNick(); }
+      if (e.key === "Escape") $("#nickModal").hidden = true;
+    });
+  }
+
+  return { init, offer, open, isOn: on };
+})();
+
 /* ======================= 6. 시작 화면 · 초기화 ======================= */
 
 function goHome() {
@@ -1243,9 +1811,10 @@ function renderMarquee() {
 
     const img = document.createElement("img");
     img.alt = "";
-    img.loading = "eager";
+    img.decoding = "async";
     img.addEventListener("error", () => img.remove());
-    img.src = s.cover;
+    // 아직 주소를 넣지 않습니다. 화면에 들어올 때 아래 관찰자가 넣어줍니다.
+    img.dataset.src = s.cover;
 
     box.appendChild(img);
     box.title = s.title + " · " + (s.album || "");
@@ -1257,6 +1826,34 @@ function renderMarquee() {
     list.forEach((s) => frag.appendChild(makeItem(s)));
   }
   track.replaceChildren(frag);
+
+  /* 첫 화면을 가볍게 하려고, 커버는 띠에 실제로 보일 때 받아옵니다.
+     (16장을 처음부터 다 받으면 1.7MB 라서 휴대폰 데이터로 열면 느립니다) */
+  const imgs = track.querySelectorAll("img[data-src]");
+  if (!("IntersectionObserver" in window)) {
+    imgs.forEach((im) => { im.src = im.dataset.src; delete im.dataset.src; });
+    return;
+  }
+  const show = (im) => {
+    if (im.dataset.src) { im.src = im.dataset.src; delete im.dataset.src; }
+  };
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      show(e.target);
+      io.unobserve(e.target);
+    });
+  }, { root: null, rootMargin: "200px" });
+  imgs.forEach((im) => io.observe(im));
+
+  // 안전장치 : 어떤 이유로든 위 관찰자가 동작하지 않으면
+  // 띠가 빈 채로 남지 않도록 앞쪽 8장은 그냥 불러옵니다.
+  setTimeout(() => {
+    const anyLoaded = track.querySelector("img[src]");
+    if (anyLoaded) return;
+    Array.prototype.slice.call(imgs, 0, 8).forEach(show);
+  }, 2000);
 }
 
 /** 02번 카드 미리보기에 앨범 커버 한 장을 넣습니다 (열 때마다 랜덤) */
@@ -1274,13 +1871,75 @@ function renderDemoCover() {
   box.replaceChildren(img);
 }
 
+/* ---- 휴대폰 키보드 대응 ----
+   휴대폰에서 키보드가 올라오면 화면의 아래쪽 절반쯤이 가려집니다.
+   visualViewport 로 "실제로 보이는 높이"를 감시해서,
+   키보드가 올라오면 body 에 kb-open 을 붙여 가사를 위로 끌어올립니다. */
+function initKeyboardWatch() {
+  const vv = window.visualViewport;
+  if (!vv) return;   // 데스크톱 브라우저 등 지원 안 하면 아무 일도 안 함
+
+  const update = () => {
+    // 화면 높이가 눈에 띄게 줄었으면 키보드가 올라온 것으로 봅니다
+    const shrunk = window.innerHeight - vv.height > 140;
+    const playing = currentScreen === "screen-lyrics" || currentScreen === "screen-quiz";
+    document.body.classList.toggle("kb-open", shrunk && playing);
+
+    // 보이는 높이를 CSS 에서도 쓸 수 있게 넘겨줍니다
+    document.documentElement.style.setProperty("--vv-height", vv.height + "px");
+
+    // 지금 치는 줄이 가려졌으면 보이도록 스크롤
+    if (shrunk && playing) {
+      const el = currentScreen === "screen-lyrics" ? $("#lineCurrent") : $("#quizInput");
+      if (el) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  };
+
+  vv.addEventListener("resize", update);
+  vv.addEventListener("scroll", update);
+  update();
+}
+
+/* ---- 결과 화면 사진 ----
+   data/result-art.js 목록에서 무작위로 한 장을 골라 보여줍니다.
+   같은 사진이 연달아 나오지 않도록 직전에 쓴 건 피합니다. */
+
+let lastArt = "";
+
+function pickResultArt(sel) {
+  const fig = $(sel);
+  if (!fig) return;
+
+  const list = (typeof RESULT_ART !== "undefined") ? RESULT_ART : [];
+  if (!list.length) { fig.hidden = true; return; }
+
+  // 방금 나온 사진은 빼고 고릅니다 (한 장뿐이면 그냥 그걸로)
+  const pool = list.length > 1 ? list.filter((p) => p !== lastArt) : list;
+  const src = pool[Math.floor(Math.random() * pool.length)];
+  lastArt = src;
+
+  const img = fig.querySelector(".result-art__img");
+  const bg = fig.querySelector(".result-art__bg");
+
+  fig.hidden = true;                     // 다 불러온 뒤에 보여줍니다
+  img.onload = () => {
+    bg.style.backgroundImage = 'url("' + src + '")';
+    fig.hidden = false;
+  };
+  img.onerror = () => { fig.hidden = true; };
+  img.src = src;
+}
+
 function init() {
   initTheme();
+  initKeyboardWatch();
   initVolume();
-  preloadCovers();          // 커버를 미리 받아둡니다 (퀴즈 정답 공개가 매끄럽도록)
+  // 커버 미리받기는 첫 화면을 무겁게 하므로 퀴즈에 들어갈 때 합니다
   renderMarquee();
   renderDemoCover();
   Lyrics.initAutoWaitToggle();
+  Ranking.init();
+  Share.init();
   Lyrics.renderSongList();
 
   // ---- 시작 화면 ----
@@ -1288,6 +1947,9 @@ function init() {
   // 퀴즈는 커버가 보이면 정답이 새어나가므로 배경을 반드시 끕니다
   $("#btnModeQuiz").addEventListener("click", () => { setStageBg(""); Quiz.showIntro(); });
   $("#btnHome").addEventListener("click", goHome);
+  $("#btnBack").addEventListener("click", goBack);
+  // 휴대폰의 뒤로가기 제스처도 같은 동작을 하게 합니다
+  window.addEventListener("popstate", () => { if (BACK_TO[currentScreen]) goBack(); });
 
   // ---- 가사 모드 ----
   $("#btnQuitLyrics").addEventListener("click", () => { Lyrics.quit(); showScreen("screen-select"); });

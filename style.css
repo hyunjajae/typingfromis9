@@ -120,6 +120,26 @@ main {
   letter-spacing: -.015em;
   transition: opacity .2s var(--ease);
 }
+.topbar__left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+
+/* 뒤로 가기 */
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background-color: var(--surface);
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 16px 9px 13px;
+  transition: all .25s var(--ease);
+}
+.back-btn:hover { border-color: var(--accent); color: var(--accent); }
+.back-btn span[aria-hidden] { font-size: 15px; line-height: 1; }
+
 .brand:hover { opacity: .6; }
 .brand__logo {
   width: 36px; height: 36px;
@@ -1038,6 +1058,58 @@ html[data-theme="dark"] .stage-bg.is-on { opacity: .8; }
   color: var(--muted);
 }
 
+/* ---- 결과 화면 사진 ----
+   data/result-art.js 목록에서 무작위로 한 장이 뜹니다.
+   사진 비율이 제각각이라 잘라내면 얼굴이 잘리기 쉬워서,
+   뒤에 같은 사진을 흐리게 깔고 앞에는 사진 전체를 넣습니다.
+   (어떤 비율이 와도 얼굴이 안 잘립니다) */
+.result-art {
+  position: relative;
+  margin: 0 0 36px;
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  background-color: var(--line);
+  height: 340px;
+  animation: rise .5s .1s var(--ease) both;
+  isolation: isolate;
+}
+
+/* 뒤에 깔리는 흐린 배경 (같은 사진을 꽉 채워서 흐리게) */
+.result-art__bg {
+  position: absolute;
+  inset: -30px;
+  z-index: 0;
+  background-position: center;
+  background-size: cover;
+  filter: blur(26px) saturate(1.25) brightness(.92);
+  transform: scale(1.08);
+}
+.result-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-color: rgba(var(--bg-rgb), .18);
+}
+
+/* 앞에 오는 사진 — 잘리지 않고 통째로 */
+.result-art__img {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  object-fit: contain;
+  box-shadow: 0 14px 40px -20px rgba(0,0,0,.6);
+}
+
+@media (max-width: 760px) {
+  .result-art { margin-bottom: 26px; height: 260px; }
+  .result-art__bg { filter: blur(18px) saturate(1.25) brightness(.92); }
+}
+
 .big-time {
   font-size: clamp(3.4rem, 11vw, 7rem);
   font-weight: 800;
@@ -1047,6 +1119,172 @@ html[data-theme="dark"] .stage-bg.is-on { opacity: .8; }
   margin: 0 0 46px;
   line-height: 1;
 }
+
+/* ---------- 11-a. 결과 부가 표시 · 공유 ---------- */
+.best-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background-color: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: middle;
+  animation: wait-pulse 1.6s ease-in-out infinite;
+}
+html[data-theme="dark"] .best-badge { color: #06120d; }
+
+.result-note {
+  margin: -26px 0 32px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.result-note b { color: var(--text-soft); }
+
+.btn-row--share { margin-bottom: 18px; align-items: center; }
+.share-msg { font-size: 13px; color: var(--muted); }
+.share-msg.is-ok { color: var(--accent); font-weight: 600; }
+.share-msg.is-ng { color: var(--wrong); font-weight: 600; }
+
+/* ---------- 11-b. 랭킹 ---------- */
+.home-extra { margin-top: 26px; text-align: center; }
+
+.submit-box {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 22px;
+}
+.submit-box__row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.submit-box__nick { font-size: 14px; color: var(--muted); }
+.submit-box__nick b { color: var(--text); font-weight: 700; margin-left: 4px; }
+.spacer { flex: 1; }
+.submit-box__msg { margin: 12px 0 0; font-size: 13.5px; color: var(--muted); min-height: 1px; }
+.submit-box__msg.is-ok { color: var(--accent); font-weight: 600; }
+.submit-box__msg.is-ng { color: var(--wrong); font-weight: 600; }
+
+.rank-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.rank-tab {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  transition: all .25s var(--ease);
+}
+.rank-tab:hover { border-color: var(--accent); color: var(--accent); }
+.rank-tab.is-on {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+html[data-theme="dark"] .rank-tab.is-on { color: #06120d; }
+
+.rank-song {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  padding: 9px 14px;
+  outline: 0;
+  cursor: pointer;
+}
+
+.rank-list {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 34px;
+}
+.rank-row {
+  display: grid;
+  grid-template-columns: 46px 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 15px;
+}
+.rank-row:last-child { border-bottom: 0; }
+.rank-row.is-me { background-color: var(--accent-soft); }
+.rank-row__no {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.rank-row:nth-child(1) .rank-row__no { color: #d4a017; font-size: 16px; }
+.rank-row:nth-child(2) .rank-row__no { color: #9aa0a6; font-size: 15px; }
+.rank-row:nth-child(3) .rank-row__no { color: #b87333; font-size: 15px; }
+.rank-row__nick { font-weight: 600; word-break: break-all; }
+.rank-row__sub { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rank-row__score {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+.rank-empty { margin: 0; padding: 42px 20px; text-align: center; color: var(--muted); font-size: 14.5px; }
+
+@media (max-width: 560px) {
+  .rank-row { grid-template-columns: 34px 1fr auto; gap: 10px; padding: 12px 14px; }
+  .rank-row__sub { display: none; }
+}
+
+/* ---------- 11-c. 닉네임 입력 창 ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background-color: rgba(var(--bg-rgb), .82);
+  backdrop-filter: blur(6px);
+  animation: rise .25s var(--ease) both;
+}
+.modal__box {
+  width: min(420px, 100%);
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-l);
+  padding: 30px 28px 24px;
+  box-shadow: 0 30px 70px -40px rgba(0,0,0,.6);
+}
+.modal__title { margin: 0 0 10px; font-size: 21px; font-weight: 800; letter-spacing: -.03em; }
+.modal__desc { margin: 0 0 20px; font-size: 14px; color: var(--text-soft); line-height: 1.65; }
+.modal__input {
+  width: 100%;
+  border: 0;
+  border-bottom: 2px solid var(--line-strong);
+  background-color: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  padding: 10px 2px;
+  outline: 0;
+  transition: border-color .25s var(--ease);
+}
+.modal__input:focus { border-bottom-color: var(--accent); }
+.modal__err { margin: 10px 0 0; font-size: 13px; color: var(--wrong); min-height: 18px; }
+.modal__btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
 
 /* ---------- 12. 버튼 ---------- */
 .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
@@ -1079,19 +1317,73 @@ html[data-theme="dark"] .solid-btn { color: #06120d; }
 
 /* ---------- 13. 반응형 ---------- */
 @media (max-width: 760px) {
-  .topbar { padding: 20px 20px 26px; }
-  main { padding: 0 20px 70px; }
+  .topbar { padding: 16px 18px 18px; gap: 12px; }
+  main { padding: 0 18px 60px; }
   .mode-grid { grid-template-columns: 1fr; }
   .stat-row { grid-template-columns: repeat(2, 1fr); }
-  .hud { gap: 15px; }
+  .hud { gap: 14px; }
   .hud__item b { font-size: 15px; }
-  .hero { padding: 20px 0 46px; }
-  .lyric-stage { min-height: 300px; padding: 24px 0; }
-  .screen--play.active { min-height: calc(100vh - 170px); }
+  .hud__item i { font-size: 9px; }
+  .hero { padding: 16px 0 4px; }
+  .page-head { padding: 16px 0 28px; }
+
+  /* ---- 모바일에서 휴대폰 키보드가 가사를 가리지 않게 ----
+     가운데 정렬을 풀고 위쪽에 붙여서, 키보드가 올라와도
+     지금 쳐야 할 줄이 화면 위쪽에 남아 있게 합니다. */
+  .screen--play.active { min-height: auto; }
+  .lyric-stage {
+    justify-content: flex-start;
+    min-height: 0;
+    padding: 18px 0 8px;
+  }
+  .lyric--prev { display: none; }        /* 좁은 화면에서는 지난 줄을 숨김 */
+  .lyric--next2 { display: none; }
+  .lyric-current-wrap { margin: 4px 0 16px; }
+  .hint-line { padding: 6px 0 16px; font-size: 12px; }
+
+  /* 커버 띠·모드 카드도 살짝 줄입니다 */
+  .marquee { margin: 30px 0 26px; }
+  .marquee__item { width: 84px; height: 84px; margin-right: 12px; }
+  .mode-card__demo { height: 140px; padding: 0 16px; }
+  .mode-card__body { padding: 22px 22px 24px; }
+
+  /* 플레이 화면 상단 정보 */
+  .play-head { padding: 6px 0 14px; gap: 12px; }
+  .play-head__cover { width: 42px; height: 42px; }
+  .play-head__song { font-size: 18px; }
+  .audio-bar { gap: 10px; padding: 10px 0 2px; }
+  .audio-vol { margin-left: 0; }
+  .audio-vol input[type="range"] { width: 84px; }
+
+  /* 퀴즈 화면 */
+  .quiz-stage { min-height: 0; padding: 22px 0 32px; gap: 20px; }
+  .quiz-reveal__frame { width: clamp(120px, 34vw, 170px); }
+
+  .big-time { margin-bottom: 30px; }
+  .btn-row { gap: 10px; }
+  .solid-btn { padding: 13px 26px; }
 }
 
 @media (max-width: 430px) {
   .stat-row { grid-template-columns: 1fr 1fr; }
   .stat b { font-size: 27px; }
+  .stat { padding: 18px 16px; }
   .brand__text { display: none; }
+  .back-btn__text { display: none; }
+  .back-btn { padding: 9px 12px; }
+  .hero__eyebrow { font-size: 13px; letter-spacing: .06em; }
+  .hero__logo { width: 30px; height: 30px; }
+  .marquee__item { width: 68px; height: 68px; margin-right: 10px; }
+  .play-head__actions { width: 100%; }
+  .lyric--current { font-size: clamp(1.25rem, 6.6vw, 1.6rem); }
+  .demo-ch { min-width: 15px; font-size: 15px; }
 }
+
+/* ---- 키보드가 올라왔을 때 (JS 가 붙여줍니다) ----
+   지금 쳐야 할 줄이 항상 화면에 보이도록 위쪽으로 끌어올립니다. */
+body.kb-open .lyric--next,
+body.kb-open .hint-line { display: none; }
+body.kb-open .lyric-stage { padding-top: 6px; }
+body.kb-open .topbar { padding-top: 8px; padding-bottom: 8px; }
+body.kb-open .play-head,
+body.kb-open .audio-bar { display: none; }

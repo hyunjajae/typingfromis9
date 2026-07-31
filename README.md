@@ -100,6 +100,30 @@ cover: "covers/midnight-guest.jpg",
 - **256 × 256px, 배경이 투명한 PNG**여야 합니다.
 - 바꾸고 싶으면 같은 이름으로 덮어쓰면 됩니다.
 
+### 결과 화면 사진 (`images/result/`)
+
+게임을 한 판 끝낼 때마다 **무작위로 한 장**이 뜹니다. 지금 25장이 들어 있습니다.
+
+- **비율은 아무래도 상관없습니다.** 가로·세로·정사각형 다 됩니다.
+  사진을 잘라내지 않고 **통째로** 보여주고, 뒤에 같은 사진을 흐리게 깔아서 빈 공간을 채웁니다.
+  그래서 **얼굴이 잘릴 일이 없습니다.**
+- 한 장당 **500KB 이하**를 권합니다. (결과 화면마다 한 장씩 받아오니까요)
+- 같은 사진이 연달아 나오지 않도록 직전에 쓴 건 피합니다.
+
+**사진 추가하는 법**
+
+1. `images/result/` 폴더에 파일을 넣습니다.
+2. `data/result-art.js` 목록에 한 줄 추가합니다.
+
+```js
+const RESULT_ART = [
+  "images/result/chaeyoung.jpeg",
+  "images/result/새로운사진.jpg",     // ← 이렇게
+];
+```
+
+빼고 싶으면 그 줄만 지우면 됩니다. (파일은 안 지워도 돼요)
+
 ### 시작 화면은 이미지를 더 넣을 필요가 없습니다
 
 | 요소 | 어디서 오나 |
@@ -207,6 +231,29 @@ const SONG_ORDER = [
 목록에 안 적힌 곡은 맨 뒤에 자동으로 붙습니다.
 (인트로 퀴즈는 매번 무작위로 섞이므로 이 순서와 무관합니다.)
 
+### ⭐ 타이밍이 미세하게 안 맞을 때 — 미세조정 도구
+
+`lyrics-tuner.html` (주소창에 `http://localhost:5660/lyrics-tuner.html`)
+
+타임코드 도구(`lyrics-timer.html`)로 찍은 시각은 사람 반응속도 때문에 보통 조금씩 늦습니다.
+이 도구는 **한 줄씩 반복해서 들으며** 0.05초 단위로 다듬는 용도입니다.
+
+1. 곡을 고릅니다. (mp3를 통째로 받아오므로 몇 초 걸립니다)
+2. 줄을 클릭하면 그 줄이 **반복 재생**됩니다.
+3. 소리를 들으며 `←` `→` 로 -0.05 / +0.05초씩 밉니다. **조절하는 즉시 새 지점부터 다시 들려줍니다.**
+4. 다 되면 아래 코드를 복사해서 `data/songs.js` 에 붙여넣습니다.
+
+| 키 | 동작 |
+|---|---|
+| `Space` | 재생 / 정지 |
+| `←` `→` | 현재 줄 -0.05초 / +0.05초 |
+| `↑` `↓` | 이전 줄 / 다음 줄 |
+
+- **전체 -0.1s / +0.1s** — 곡 전체가 통째로 밀렸을 때 한 번에 당기거나 미룹니다.
+- **미리듣기 길이 / 앞 여유** — 줄 시작 얼마 전부터 몇 초를 들을지 정합니다.
+  앞 여유를 0.5초로 두면 "가사가 시작되기 직전"이 들려서 맞추기 쉽습니다.
+- 바꾼 줄은 **빨간색**으로 표시되고, `되돌리기` 로 원래대로 되돌립니다.
+
 ### 특수한 경우
 
 - **가사 모드에는 안 넣고 퀴즈에만 내고 싶은 곡** → `lyrics: []` 로 비워두세요.
@@ -217,6 +264,191 @@ const SONG_ORDER = [
 > (브라우저가 옛날 파일을 캐시하지 않도록 `index.html` 에 처리를 해뒀습니다.
 >  GitHub Pages 에 올린 뒤에는 캐시를 정상적으로 써서 빠르게 열립니다.)
 > 그래도 이상하면 **`Ctrl + Shift + R`** (강력 새로고침)을 눌러보세요.
+
+---
+
+## 3-b. 랭킹 붙이기 (Supabase) — 처음부터 끝까지
+
+여러 사람 기록을 모아서 순위를 매기는 기능입니다. **설정 전에는 랭킹 관련 화면이 전부 숨겨져 있고**,
+게임은 지금까지처럼 똑같이 동작합니다. 천천히 하셔도 돼요.
+
+### 왜 Supabase 가 필요한가요?
+
+GitHub Pages 는 **파일을 보여주기만** 하는 서버입니다. 데이터를 받아서 저장해 두는 기능이 없어요.
+그래서 "저장하는 일"만 Supabase 라는 무료 서비스에 맡깁니다.
+
+```
+[GitHub Pages]  ← 지금 이 사이트 (그대로 둡니다)
+      ↕
+[Supabase]      ← 기록만 여기에 저장
+```
+
+---
+
+### 1단계 · 가입하고 프로젝트 만들기
+
+1. https://supabase.com 접속 → 오른쪽 위 **Start your project**
+2. GitHub 계정으로 로그인 (이미 있으니 제일 편해요)
+3. **New project** 클릭
+4. 입력할 것
+   - **Name**: `fromis9-typing` (아무거나)
+   - **Database Password**: 아무거나 길게. **꼭 어딘가 적어두세요.** (나중에 쓸 일은 거의 없습니다)
+   - **Region**: `Northeast Asia (Seoul)` 선택 ← 한국이라 제일 빠릅니다
+5. **Create new project** → 준비되는 데 1~2분 걸립니다
+
+---
+
+### 2단계 · 기록을 담을 표(테이블) 만들기
+
+1. 왼쪽 메뉴에서 **SQL Editor** (아이콘이 `>_` 모양) 클릭
+2. **New query** 클릭
+3. 아래를 **통째로 복사해서 붙여넣고** 오른쪽 아래 **Run** 을 누르세요
+
+```sql
+-- 기록을 담을 표
+create table scores (
+  id          bigint generated always as identity primary key,
+  created_at  timestamptz not null default now(),
+  nickname    text    not null,
+  mode        text    not null,
+  song_id     text,
+  cpm         int,
+  accuracy    int,
+  seconds     numeric,
+  misses      int,
+
+  -- 말도 안 되는 값이 들어오는 걸 막는 규칙들
+  constraint nickname_길이  check (char_length(nickname) between 2 and 12),
+  constraint mode_값        check (mode in ('lyrics', 'quiz')),
+  constraint cpm_범위       check (cpm is null or cpm between 1 and 1500),
+  constraint accuracy_범위  check (accuracy is null or accuracy between 50 and 100),
+  constraint seconds_범위   check (seconds is null or seconds between 20 and 3600),
+  constraint misses_범위    check (misses is null or misses between 0 and 999)
+);
+
+-- 순위 조회를 빠르게
+create index scores_quiz_idx   on scores (mode, seconds);
+create index scores_lyrics_idx on scores (mode, song_id, cpm desc);
+
+-- 보안 규칙 켜기
+alter table scores enable row level security;
+
+-- 누구나 "읽기"는 가능
+create policy "누구나 순위를 볼 수 있음"
+  on scores for select using (true);
+
+-- 누구나 "새 기록 추가"는 가능 (수정·삭제는 아무도 못 함)
+create policy "누구나 기록을 올릴 수 있음"
+  on scores for insert with check (true);
+```
+
+> `Success. No rows returned` 가 나오면 성공입니다.
+>
+> 💡 **여기가 핵심입니다.** `constraint` 규칙들이 서버 쪽 방어선이에요.
+> 게임 코드에서도 한 번 거르지만, 누가 코드를 우회해도 이 규칙은 못 넘습니다.
+> 수정·삭제 정책을 안 만들었기 때문에 **남의 기록을 지우거나 바꾸는 것도 불가능**합니다.
+
+---
+
+### 3단계 · 열쇠 두 개 복사하기
+
+1. 왼쪽 메뉴 맨 아래 **Project Settings**(톱니바퀴) → **API**
+2. 두 가지를 복사합니다
+   - **Project URL** — `https://xxxxxxxx.supabase.co` 같은 주소
+   - **Project API keys** 의 **`anon` `public`** 키 — `eyJhbGci...` 로 시작하는 아주 긴 글자
+
+> ⚠️ 그 아래 **`service_role`** 키는 **절대 복사하지 마세요.** 그건 관리자 열쇠라
+> 코드에 넣으면 누구나 데이터를 지울 수 있게 됩니다. 반드시 **`anon`** 쪽입니다.
+
+---
+
+### 4단계 · 게임에 붙이기
+
+`data/ranking-config.js` 를 열어서 세 줄만 고칩니다.
+
+```js
+const RANKING = {
+  enabled: true,                                   // false → true
+  url: "https://xxxxxxxx.supabase.co",             // 2단계에서 복사한 주소
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", // anon public 키
+  topN: 20
+};
+```
+
+저장하고 새로고침하면 **시작 화면에 "🏆 랭킹 보기"** 가 생깁니다.
+게임을 한 판 끝내면 결과 화면에 **"랭킹에 등록"** 버튼이 나옵니다.
+
+---
+
+### 잘 되는지 확인하기
+
+1. 인트로 퀴즈를 한 판 완주합니다 (**패스 없이** — 패스한 판은 등록이 막혀 있어요)
+2. 닉네임을 정하고 **랭킹에 등록** 클릭
+3. "랭킹에 올렸습니다!" 가 뜨면 성공
+4. Supabase 왼쪽 메뉴 **Table Editor → scores** 에 들어가면 방금 기록이 보입니다
+
+**안 되면 이 순서로 확인하세요.**
+
+| 증상 | 원인 |
+|---|---|
+| "랭킹 보기"가 아예 안 보임 | `enabled: true` 로 안 바뀜 / 새로고침 안 함 |
+| 등록 실패 (401) | `anonKey` 를 잘못 복사 (앞뒤 공백 확인) |
+| 등록 실패 (404) | `url` 이 틀렸거나 테이블 이름이 `scores` 가 아님 |
+| 등록 실패 (400) | 2단계 SQL 의 `constraint` 규칙에 걸림 (정상 동작입니다) |
+| 등록 실패 (403) | 3번째 SQL 의 policy 가 안 만들어짐 |
+
+---
+
+### 부정 기록은 어떻게 막나요?
+
+**완벽하게는 못 막습니다.** 브라우저에서 도는 게임이라 마음먹으면 가짜 값을 보낼 수 있어요.
+대신 아래처럼 **터무니없는 값은 걸러집니다.**
+
+| 거르는 조건 | 게임 안 | Supabase |
+|---|---|---|
+| 닉네임 2~12글자 | ✅ | ✅ |
+| 타수 1~1500 CPM | ✅ | ✅ |
+| 정확도 50~100% | ✅ | ✅ |
+| 완주 시간 20초~1시간 | ✅ | ✅ |
+| 가사 모드 10초 미만 / 30글자 미만 | ✅ | — |
+| 퀴즈에서 **패스한 판** | ✅ | — |
+| 곡 수 × 1.5초보다 빠른 완주 | ✅ | — |
+
+> 팬끼리 즐기는 사이트라 이 정도면 충분합니다.
+> 이상한 기록이 올라오면 Supabase **Table Editor** 에서 직접 지우시면 됩니다.
+
+### 개인정보 주의
+
+닉네임은 **누구나 볼 수 있습니다.** 실명·학교·연락처를 넣지 않도록 안내 문구를 넣어뒀습니다.
+Supabase 무료 한도(월 5만 건 요청)는 이 정도 규모에서 넘칠 일이 거의 없습니다.
+
+---
+
+## 3-c. 결과 공유 · 기록 저장
+
+### 결과 공유
+
+결과 화면에 버튼 두 개가 있습니다.
+
+- **🖼 이미지로 저장** — 결과를 **1080 × 1080 정사각형 카드**로 그려서 PNG 로 내려받습니다.
+  앨범 커버 · 곡 제목 · 타수(또는 완주 시간) · 정확도가 들어갑니다. SNS 에 그대로 올리기 좋은 규격이에요.
+- **🔗 공유하기**
+  - **휴대폰** — 공유창이 떠서 인스타·트위터·카톡 등으로 **이미지까지 함께** 보냅니다.
+  - **PC** — X(트위터) 작성창이 열리고 글이 클립보드에 복사됩니다. 이미지는 저장 후 첨부하세요.
+    *(PC 브라우저는 이미지 자동 첨부를 지원하지 않습니다)*
+
+해시태그는 `#fromis_9 #프로미스나인 #플로버` 가 자동으로 붙습니다.
+바꾸고 싶으면 `game.js` 에서 `shareText` 를 검색해 수정하세요.
+
+### 가사 모드 최고 기록
+
+곡마다 **최고 타수(CPM)** 가 이 브라우저에 저장됩니다.
+
+- 곡 선택 화면의 곡 카드에 `내 최고 412 CPM` 으로 표시됩니다.
+- 결과 화면에 `내 최고 타수` 칸이 있고, 기록을 깨면 **"신기록!"** 배지가 뜹니다.
+- 30글자 미만으로 친 판은 기록으로 인정하지 않습니다.
+- 브라우저에 저장되는 값이라 다른 기기·시크릿 모드에서는 따로 쌓입니다.
+  여러 사람과 겨루려면 위의 **랭킹** 기능을 쓰세요.
 
 ---
 
@@ -276,7 +508,8 @@ fromis9-typing/
 ├─ audio/            ★ mp3 파일을 넣는 곳
 ├─ covers/           앨범 커버 이미지 (800×800)
 ├─ images/           ★ 시작 화면 모드 카드 배경 사진 (16:9)
-├─ lyrics-timer.html 가사 타임코드 찍는 도구
+├─ lyrics-timer.html 가사 타임코드 찍는 도구 (처음 넣을 때)
+├─ lyrics-tuner.html 가사 타이밍 미세조정 도구 (다듬을 때)
 └─ README.md
 ```
 

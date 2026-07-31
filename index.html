@@ -26,10 +26,16 @@
 
   <!-- ============ 상단 바 ============ -->
   <header class="topbar">
-    <button class="brand" id="btnHome" type="button">
-      <img class="brand__logo" src="images/logo.png" alt="fromis_9" />
-      <span class="brand__text">fromis_9 <b>TYPING</b></span>
-    </button>
+    <div class="topbar__left">
+      <!-- 시작 화면이 아닐 때만 보이는 뒤로 가기 -->
+      <button class="back-btn" id="btnBack" type="button" hidden>
+        <span aria-hidden="true">←</span><span class="back-btn__text">뒤로</span>
+      </button>
+      <button class="brand" id="btnHome" type="button">
+        <img class="brand__logo" src="images/logo.png" alt="fromis_9" />
+        <span class="brand__text">fromis_9 <b>TYPING</b></span>
+      </button>
+    </div>
 
     <div class="topbar__right">
       <!-- 게임 중에만 보이는 실시간 지표 -->
@@ -95,6 +101,11 @@
             <span class="mode-card__go">시작하기 →</span>
           </span>
         </button>
+      </div>
+
+      <!-- 랭킹이 켜져 있을 때만 보입니다 -->
+      <div class="home-extra" id="homeRanking" hidden>
+        <button class="ghost-btn" id="btnOpenRanking" type="button">🏆 랭킹 보기</button>
       </div>
 
       <p class="foot-note">
@@ -168,15 +179,39 @@
     <!-- ============ 화면 4 : 가사 모드 결과 ============ -->
     <section class="screen" id="screen-lyrics-result">
       <div class="page-head">
-        <p class="page-head__eyebrow">결과</p>
+        <p class="page-head__eyebrow">결과 <span class="best-badge" id="lyricsBestBadge" hidden>신기록!</span></p>
         <h2 class="page-head__title" id="resultSongTitle">곡 제목</h2>
       </div>
+
+      <!-- data/result-art.js 목록에서 무작위로 한 장 (JS 가 채웁니다) -->
+      <figure class="result-art" id="artLyrics" hidden>
+        <span class="result-art__bg"></span>
+        <img class="result-art__img" alt="" />
+      </figure>
 
       <div class="stat-row">
         <div class="stat"><i>평균 타수</i><b id="rsCpm">0</b><em>CPM</em></div>
         <div class="stat"><i>정확도</i><b id="rsAcc">0%</b><em>Accuracy</em></div>
         <div class="stat"><i>소요 시간</i><b id="rsTime">0s</b><em>Time</em></div>
-        <div class="stat"><i>영문 기준</i><b id="rsWpm">0</b><em>WPM</em></div>
+        <div class="stat"><i>내 최고 타수</i><b id="rsBest">—</b><em id="rsBestSub">Best</em></div>
+      </div>
+      <p class="result-note">영문 기준 <b id="rsWpm">0</b> WPM · 최고 기록은 이 브라우저에 저장됩니다</p>
+
+      <!-- 랭킹 등록 (랭킹이 켜져 있을 때만) -->
+      <div class="submit-box" id="submitLyrics" hidden>
+        <div class="submit-box__row">
+          <span class="submit-box__nick">닉네임 <b id="nickLyrics">—</b></span>
+          <button class="ghost-btn ghost-btn--sm" id="btnNickLyrics" type="button">바꾸기</button>
+          <span class="spacer"></span>
+          <button class="solid-btn" id="btnSubmitLyrics" type="button">🏆 랭킹에 등록</button>
+        </div>
+        <p class="submit-box__msg" id="msgLyrics"></p>
+      </div>
+
+      <div class="btn-row btn-row--share">
+        <button class="ghost-btn" id="btnSaveImgLyrics" type="button">🖼 이미지로 저장</button>
+        <button class="ghost-btn" id="btnShareLyrics" type="button">🔗 공유하기</button>
+        <span class="share-msg" id="shareMsgLyrics"></span>
       </div>
 
       <div class="btn-row">
@@ -261,6 +296,11 @@
         <h2 class="page-head__title" id="quizResultTitle">기록 달성!</h2>
       </div>
 
+      <figure class="result-art" id="artQuiz" hidden>
+        <span class="result-art__bg"></span>
+        <img class="result-art__img" alt="" />
+      </figure>
+
       <div class="big-time" id="qrTime">00:00.0</div>
 
       <div class="stat-row">
@@ -270,13 +310,72 @@
         <div class="stat"><i>최고 기록</i><b id="qrBest">--</b><em>Best</em></div>
       </div>
 
+      <div class="submit-box" id="submitQuiz" hidden>
+        <div class="submit-box__row">
+          <span class="submit-box__nick">닉네임 <b id="nickQuiz">—</b></span>
+          <button class="ghost-btn ghost-btn--sm" id="btnNickQuiz" type="button">바꾸기</button>
+          <span class="spacer"></span>
+          <button class="solid-btn" id="btnSubmitQuiz" type="button">🏆 랭킹에 등록</button>
+        </div>
+        <p class="submit-box__msg" id="msgQuiz"></p>
+      </div>
+
+      <div class="btn-row btn-row--share">
+        <button class="ghost-btn" id="btnSaveImgQuiz" type="button">🖼 이미지로 저장</button>
+        <button class="ghost-btn" id="btnShareQuiz" type="button">🔗 공유하기</button>
+        <span class="share-msg" id="shareMsgQuiz"></span>
+      </div>
+
       <div class="btn-row">
         <button class="solid-btn" id="btnRetryQuiz" type="button">다시하기</button>
         <button class="ghost-btn" id="btnHomeFromQuiz" type="button">시작 화면</button>
       </div>
     </section>
 
+    <!-- ============ 화면 8 : 랭킹 ============ -->
+    <section class="screen" id="screen-ranking">
+      <div class="page-head">
+        <p class="page-head__eyebrow">Ranking</p>
+        <h2 class="page-head__title">랭킹</h2>
+        <p class="page-head__sub">다른 플로버들의 기록입니다.</p>
+      </div>
+
+      <div class="rank-tabs">
+        <button class="rank-tab is-on" id="tabQuiz" type="button">인트로 퀴즈</button>
+        <button class="rank-tab" id="tabLyrics" type="button">가사 타이핑</button>
+        <select class="rank-song" id="rankSong" hidden></select>
+        <span class="spacer"></span>
+        <button class="ghost-btn ghost-btn--sm" id="btnRankRefresh" type="button">새로고침</button>
+      </div>
+
+      <div class="rank-list" id="rankList">
+        <p class="rank-empty">불러오는 중…</p>
+      </div>
+
+      <div class="btn-row">
+        <button class="ghost-btn" id="btnHomeFromRanking" type="button">시작 화면</button>
+      </div>
+    </section>
+
   </main>
+
+  <!-- ============ 닉네임 입력 창 ============ -->
+  <div class="modal" id="nickModal" hidden>
+    <div class="modal__box">
+      <h3 class="modal__title">닉네임을 정해주세요</h3>
+      <p class="modal__desc">
+        랭킹에 표시될 이름입니다. <b>2~12글자</b>로 지어주세요.<br />
+        실명이나 연락처 같은 개인정보는 넣지 마세요.
+      </p>
+      <input class="modal__input" id="nickInput" type="text" maxlength="12"
+             placeholder="예) 플로버9" autocomplete="off" />
+      <p class="modal__err" id="nickErr"></p>
+      <div class="modal__btns">
+        <button class="ghost-btn" id="btnNickCancel" type="button">취소</button>
+        <button class="solid-btn" id="btnNickSave" type="button">저장</button>
+      </div>
+    </div>
+  </div>
 
   <!-- 곡 데이터 → 게임 로직 순서로 불러옵니다.
        로컬에서 작업할 때 브라우저가 옛날 파일을 캐시해서
@@ -289,7 +388,7 @@
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       var bust = dev ? "?t=" + Date.now() : "";
 
-      ["data/songs.js", "game.js"].forEach(function (src) {
+      ["data/ranking-config.js", "data/result-art.js", "data/songs.js", "game.js"].forEach(function (src) {
         var el = document.createElement("script");
         el.src = src + bust;
         el.async = false;          // 적어둔 순서대로 실행되게 합니다
