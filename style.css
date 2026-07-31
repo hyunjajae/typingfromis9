@@ -1150,7 +1150,19 @@ html[data-theme="dark"] .best-badge { color: #06120d; }
 .share-msg.is-ng { color: var(--wrong); font-weight: 600; }
 
 /* ---------- 11-b. 랭킹 ---------- */
-.home-extra { margin-top: 26px; text-align: center; }
+/* 시작 화면의 "랭킹 보기" — 눈에 잘 띄게 큼직하게 */
+.home-extra { margin-top: 34px; text-align: center; }
+.home-extra .ghost-btn {
+  font-size: 17px;
+  font-weight: 700;
+  padding: 18px 42px;
+  border-width: 1.5px;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.home-extra .ghost-btn:hover {
+  background-color: var(--accent-soft);
+}
 
 .submit-box {
   background-color: var(--surface);
@@ -1290,6 +1302,19 @@ html[data-theme="dark"] .rank-tab.is-on { color: #06120d; }
 .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .btn-row--tight { justify-content: center; margin-top: 6px; }
 
+/* 결과 화면처럼 크게 눌러야 하는 버튼 줄 */
+.btn-row--lg { gap: 14px; }
+.btn-row--lg .solid-btn {
+  font-size: 17px;
+  padding: 18px 40px;
+}
+.btn-row--lg .ghost-btn {
+  font-size: 16px;
+  padding: 16px 32px;
+  border-width: 1.5px;
+}
+.btn-row--lg .share-msg { font-size: 14px; }
+
 .solid-btn {
   border: 0;
   border-radius: 999px;
@@ -1362,6 +1387,12 @@ html[data-theme="dark"] .solid-btn { color: #06120d; }
   .big-time { margin-bottom: 30px; }
   .btn-row { gap: 10px; }
   .solid-btn { padding: 13px 26px; }
+
+  /* 큰 버튼도 모바일에선 조금 줄이되, 손가락으로 누르기 편한 크기는 유지 */
+  .btn-row--lg { gap: 10px; }
+  .btn-row--lg .solid-btn { font-size: 16px; padding: 16px 30px; }
+  .btn-row--lg .ghost-btn { font-size: 15px; padding: 15px 24px; }
+  .home-extra .ghost-btn { font-size: 16px; padding: 16px 32px; }
 }
 
 @media (max-width: 430px) {
