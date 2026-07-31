@@ -1827,33 +1827,31 @@ function renderMarquee() {
   }
   track.replaceChildren(frag);
 
-  /* 첫 화면을 가볍게 하려고, 커버는 띠에 실제로 보일 때 받아옵니다.
-     (16장을 처음부터 다 받으면 1.7MB 라서 휴대폰 데이터로 열면 느립니다) */
-  const imgs = track.querySelectorAll("img[data-src]");
-  if (!("IntersectionObserver" in window)) {
-    imgs.forEach((im) => { im.src = im.dataset.src; delete im.dataset.src; });
-    return;
-  }
+  /* 첫 화면을 가볍게 하려고 커버를 나눠서 받아옵니다.
+     처음 보이는 만큼만 바로 받고, 나머지는 화면이 다 뜬 뒤 하나씩 채웁니다.
+
+     ※ "화면에 보일 때 받기"(IntersectionObserver)는 여기서 쓰면 안 됩니다.
+        이 띠는 transform 애니메이션으로 움직이는데 그건 GPU 쪽에서 처리돼서,
+        IntersectionObserver 가 보는 좌표는 처음 위치에서 바뀌지 않습니다.
+        그래서 처음에 화면 밖이던 커버는 영영 안 불러와지고 색 덩어리로 남습니다. */
+  const imgs = Array.prototype.slice.call(track.querySelectorAll("img[data-src]"));
   const show = (im) => {
-    if (im.dataset.src) { im.src = im.dataset.src; delete im.dataset.src; }
+    if (im && im.dataset.src) { im.src = im.dataset.src; delete im.dataset.src; }
   };
 
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach((e) => {
-      if (!e.isIntersecting) return;
-      show(e.target);
-      io.unobserve(e.target);
-    });
-  }, { root: null, rootMargin: "200px" });
-  imgs.forEach((im) => io.observe(im));
+  // 1) 처음 화면에 보이는 만큼은 바로
+  imgs.slice(0, 8).forEach(show);
 
-  // 안전장치 : 어떤 이유로든 위 관찰자가 동작하지 않으면
-  // 띠가 빈 채로 남지 않도록 앞쪽 8장은 그냥 불러옵니다.
-  setTimeout(() => {
-    const anyLoaded = track.querySelector("img[src]");
-    if (anyLoaded) return;
-    Array.prototype.slice.call(imgs, 0, 8).forEach(show);
-  }, 2000);
+  // 2) 나머지는 페이지가 다 뜬 뒤 하나씩 (다른 파일 받는 걸 방해하지 않게)
+  let i = 8;
+  const loadNext = () => {
+    if (i >= imgs.length) return;
+    show(imgs[i++]);
+    setTimeout(loadNext, 120);
+  };
+  const kick = () => setTimeout(loadNext, 700);
+  if (document.readyState === "complete") kick();
+  else window.addEventListener("load", kick, { once: true });
 }
 
 /** 02번 카드 미리보기에 앨범 커버 한 장을 넣습니다 (열 때마다 랜덤) */
