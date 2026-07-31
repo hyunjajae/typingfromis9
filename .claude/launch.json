@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "fromis9-typing",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5660"],
+      "port": 5660
+    }
+  ]
+}

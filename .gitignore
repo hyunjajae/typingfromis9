@@ -1,0 +1,11 @@
+# 음원 파일은 저작권 때문에 공개 저장소에 올리지 않습니다.
+# (개인 PC에서는 audio/ 폴더에 그냥 넣어두고 쓰면 됩니다)
+audio/*.mp3
+audio/*.m4a
+audio/*.wav
+audio/*.ogg
+
+# 윈도우/편집기 찌꺼기 파일
+Thumbs.db
+desktop.ini
+.DS_Store

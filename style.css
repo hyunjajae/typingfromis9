@@ -1,0 +1,1097 @@
+/* =========================================================================
+   fromis_9 TYPING — 공통 스타일
+   설계 방향: 넓은 여백 · 큰 타이포그래피 · 절제된 색 · 부드러운 전환
+   ========================================================================= */
+
+/* ---------- 1. 색상 토큰 (라이트 테마 기본) ---------- */
+:root {
+  --bg:          #fbfbf9;
+  --bg-rgb:      251, 251, 249;   /* 반투명 덮개용 (배경색과 같은 값) */
+  --surface:     #ffffff;
+  --text:        #171a18;
+  --text-soft:   #555b56;
+  --muted:       #9aa09a;
+  --line:        #e8e8e3;
+  --line-strong: #d6d6cf;
+
+  /* 프로미스나인 포인트 컬러 (그린 계열) */
+  --accent:      #0f9d76;
+  --accent-ink:  #0b7a5b;
+  --accent-soft: #e7f5f0;
+
+  --wrong:       #db4a3d;
+  --wrong-soft:  #fceeec;
+
+  /* 가사 글자 칸 밑줄 (배경 사진 위에서도 보이도록 진하게) */
+  --cell-line:   rgba(23, 26, 24, .4);
+
+  --radius:   14px;
+  --radius-l: 22px;
+  --ease:     cubic-bezier(.22, .61, .36, 1);
+
+  --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+          "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo",
+          system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---------- 다크 테마 ---------- */
+html[data-theme="dark"] {
+  --bg:          #0f1211;
+  --bg-rgb:      15, 18, 17;
+  --surface:     #171b19;
+  --text:        #edefeb;
+  --text-soft:   #a9b0aa;
+  --muted:       #6d746e;
+  --line:        #252a27;
+  --line-strong: #333a36;
+
+  --accent:      #3fd9a0;
+  --accent-ink:  #7ff0c4;
+  --accent-soft: #13291f;
+
+  --wrong:       #ff6f61;
+  --wrong-soft:  #2b1614;
+
+  --cell-line:   rgba(237, 239, 235, .42);
+}
+
+/* ---------- 2. 기본값 ---------- */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .35s var(--ease), color .35s var(--ease);
+  /* 게임 중 스페이스바로 화면이 튀는 걸 막기 위해 가로 스크롤 차단 */
+  overflow-x: hidden;
+}
+
+/* 플레이 화면에서는 세로 스크롤도 잠급니다 (JS가 body에 클래스를 붙임) */
+body.is-playing { overflow: hidden; }
+
+button { font-family: inherit; cursor: pointer; }
+b, strong { font-weight: 700; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .86em;
+  background-color: var(--accent-soft);
+  color: var(--accent-ink);
+  padding: .12em .45em;
+  border-radius: 5px;
+}
+
+main {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 28px 100px;
+}
+
+/* ---------- 3. 상단 바 ---------- */
+.topbar {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 26px 28px 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  font-size: 20px;
+  letter-spacing: -.015em;
+  transition: opacity .2s var(--ease);
+}
+.brand:hover { opacity: .6; }
+.brand__logo {
+  width: 36px; height: 36px;
+  object-fit: contain;
+  display: block;
+  flex: none;
+}
+.brand__text { font-weight: 400; color: var(--text-soft); }
+.brand__text b { font-weight: 800; color: var(--text); letter-spacing: .02em; }
+
+.topbar__right { display: flex; align-items: center; gap: 18px; }
+
+.icon-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background-color: var(--surface);
+  color: var(--text-soft);
+  font-size: 15px;
+  display: grid; place-items: center;
+  transition: all .25s var(--ease);
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); transform: rotate(180deg); }
+
+/* hidden 속성이 아래 display 지정에 밀리지 않도록 (이게 없으면 안 숨겨집니다) */
+[hidden] { display: none !important; }
+
+/* 실시간 지표 (HUD) */
+.hud { display: flex; gap: 22px; align-items: baseline; }
+.hud__item { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.25; }
+.hud__item i {
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hud__item b { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hud__item--time b { color: var(--accent); }
+
+/* ---------- 4. 화면 전환 ---------- */
+.screen { display: none; }
+.screen.active { display: block; animation: rise .45s var(--ease) both; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- 5. 시작 화면 ---------- */
+.hero { padding: 40px 0 6px; max-width: 780px; }
+.hero__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+  font-size: 16px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+}
+.hero__logo { width: 38px; height: 38px; object-fit: contain; display: block; flex: none; }
+.hero__title {
+  margin: 0 0 24px;
+  font-size: clamp(2.4rem, 6vw, 4.1rem);
+  font-weight: 800;
+  line-height: 1.14;
+  letter-spacing: -.035em;
+}
+.hero__sub { margin: 0; font-size: 17px; color: var(--text-soft); max-width: 46ch; }
+
+/* ---------- 5-b. 앨범 커버 띠 ----------
+   16장이 천천히 흘러갑니다. 목록을 두 번 붙여두고 정확히 절반만큼
+   밀어내면 이어붙인 자리가 안 보여서 끝없이 도는 것처럼 보입니다. */
+.marquee {
+  margin: 46px 0 40px;
+  overflow: hidden;
+  /* 양 끝을 부드럽게 사라지게 */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
+}
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee-slide 52s linear infinite;
+}
+.marquee:hover .marquee__track { animation-play-state: paused; }
+
+@keyframes marquee-slide {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* gap 대신 margin 을 쓰면 -50% 지점이 정확히 맞아떨어집니다 */
+.marquee__item {
+  width: 108px; height: 108px;
+  margin-right: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  flex: none;
+  background-color: var(--line);
+  box-shadow: 0 6px 16px -12px rgba(0,0,0,.6);
+  opacity: .88;
+  transition: opacity .3s var(--ease), transform .3s var(--ease);
+}
+.marquee__item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.marquee__item:hover { opacity: 1; transform: translateY(-3px); }
+
+/* 움직임을 불편해하는 사용자에게는 흐르지 않게 */
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track { animation: none; }
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+/* ---- 모드 카드 ----
+   위쪽에는 그 모드의 실제 화면을 축소해 보여주고(mode-card__demo),
+   아래쪽에 설명이 들어갑니다. */
+.mode-card {
+  position: relative;
+  text-align: left;
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  transition: transform .35s var(--ease), border-color .35s var(--ease), box-shadow .35s var(--ease);
+  overflow: hidden;
+  isolation: isolate;
+}
+.mode-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--line-strong);
+  box-shadow: 0 18px 44px -26px rgba(0,0,0,.32);
+}
+
+/* 미리보기 영역 */
+.mode-card__demo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 168px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(120% 130% at 50% 0%, var(--accent-soft) 0%, transparent 68%),
+    var(--bg);
+  overflow: hidden;
+}
+
+/* 01 카드 : 뒤에 Vitamin ME 앨범 커버를 흐리게 깝니다 */
+.demo--vitamin::before {
+  content: "";
+  position: absolute;
+  inset: -40px;
+  background-image: url("covers/glow-me.jpg");
+  background-size: cover;
+  background-position: center;
+  filter: blur(26px) saturate(1.3);
+  opacity: .55;
+}
+html[data-theme="dark"] .demo--vitamin::before { opacity: .38; }
+
+/* 글자가 읽히도록 가운데를 살짝 덮습니다 */
+.demo--vitamin::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom,
+              rgba(var(--bg-rgb), .55) 0%,
+              rgba(var(--bg-rgb), .3) 50%,
+              rgba(var(--bg-rgb), .78) 100%);
+}
+.demo--vitamin > * { position: relative; z-index: 1; }
+
+.demo-caption {
+  font-size: 11px;
+  letter-spacing: .06em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 01 : 가사 타이핑 글자 칸 */
+.demo-line {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;          /* 화면이 좁으면 두 줄로 접힙니다 */
+  row-gap: 10px;
+}
+.demo-ch {
+  position: relative;
+  min-width: 17px;
+  margin-right: 3px;
+  padding-bottom: 3px;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text);
+  opacity: .5;
+  border-bottom: 2px solid var(--cell-line);
+}
+.demo-ch.is-space { min-width: 9px; }
+.demo-ch.is-ok { opacity: 1; border-bottom-color: var(--accent); }
+.demo-ch.is-cur { opacity: .5; border-bottom-color: var(--accent); border-bottom-width: 3px; }
+.demo-ch.is-ng {
+  opacity: 1;
+  color: var(--wrong);
+  background-color: var(--wrong-soft);
+  border-bottom-color: var(--wrong);
+  border-radius: 4px 4px 0 0;
+}
+.demo-ch i {
+  position: absolute;
+  left: 50%; bottom: calc(100% - 2px);
+  transform: translateX(-50%);
+  font-size: 9px; font-style: normal; font-weight: 700;
+  color: var(--text-soft);
+}
+
+/* 02 : 인트로 퀴즈 (음파 + 앨범 커버) */
+.demo-quiz { display: flex; align-items: center; gap: 18px; }
+.demo-wave { display: flex; align-items: center; gap: 4px; height: 46px; }
+.demo-wave i {
+  width: 4px; border-radius: 2px;
+  background-color: var(--accent);
+  animation: demo-wave 1.1s var(--ease) infinite;
+}
+.demo-wave i:nth-child(1) { height: 14px; animation-delay: 0s; }
+.demo-wave i:nth-child(2) { height: 28px; animation-delay: .1s; }
+.demo-wave i:nth-child(3) { height: 40px; animation-delay: .2s; }
+.demo-wave i:nth-child(4) { height: 22px; animation-delay: .3s; }
+.demo-wave i:nth-child(5) { height: 34px; animation-delay: .4s; }
+.demo-wave i:nth-child(6) { height: 18px; animation-delay: .5s; }
+.demo-wave i:nth-child(7) { height: 26px; animation-delay: .6s; }
+@keyframes demo-wave { 0%, 100% { transform: scaleY(.35); } 50% { transform: scaleY(1); } }
+
+.demo-cover {
+  width: 68px; height: 68px;
+  border-radius: 9px;
+  overflow: hidden;
+  background-color: var(--line);
+  box-shadow: 0 10px 24px -14px rgba(0,0,0,.6);
+  flex: none;
+}
+.demo-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-wave i { animation: none; }
+}
+
+.mode-card__body {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  padding: 26px 30px 28px;
+}
+
+.mode-card__no {
+  display: block;
+  font-size: 12px;
+  letter-spacing: .16em;
+  color: var(--muted);
+  margin-bottom: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.mode-card__title {
+  display: block;
+  margin: 0 0 12px;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: -.025em;
+}
+.mode-card__desc {
+  display: block;
+  margin: 0 0 24px;
+  font-size: 15px;
+  color: var(--text-soft);
+  max-width: 34ch;
+}
+.mode-card__go { display: block; font-size: 14px; font-weight: 600; color: var(--accent); }
+
+.foot-note {
+  margin: 54px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 2.2;
+}
+.foot-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color .2s var(--ease);
+}
+.foot-link:hover { border-bottom-color: var(--accent); }
+
+/* ---------- 6. 페이지 헤더 (공통) ---------- */
+.page-head { padding: 26px 0 44px; max-width: 720px; }
+.page-head__eyebrow {
+  margin: 0 0 14px;
+  font-size: 12px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+}
+.page-head__title {
+  margin: 0 0 14px;
+  font-size: clamp(1.9rem, 4vw, 2.9rem);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  line-height: 1.2;
+}
+.page-head__sub { margin: 0; color: var(--text-soft); font-size: 16px; }
+
+/* ---------- 7. 곡 선택 목록 ---------- */
+.song-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 26px 20px;
+}
+
+.song-card {
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  transition: transform .3s var(--ease);
+}
+.song-card:hover { transform: translateY(-4px); }
+
+/* 앨범 커버 썸네일 (정사각형) */
+.song-card__cover {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background-color: var(--line);
+  margin-bottom: 13px;
+  box-shadow: 0 6px 20px -14px rgba(0,0,0,.5);
+  transition: box-shadow .3s var(--ease);
+}
+.song-card:hover .song-card__cover { box-shadow: 0 16px 34px -18px rgba(0,0,0,.55); }
+
+.song-card__cover img {
+  position: absolute;           /* 대체 썸네일 위에 덮이도록 */
+  inset: 0;
+  z-index: 1;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform .5s var(--ease);
+}
+.song-card:hover .song-card__cover img { transform: scale(1.05); }
+
+/* 커버 이미지가 없을 때 보여줄 대체 썸네일 */
+.song-card__fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(140deg, var(--accent-soft), var(--line));
+  color: var(--accent);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+}
+
+/* 커버 위에 뜨는 재생 아이콘 */
+.song-card__play {
+  position: absolute;
+  z-index: 2;
+  right: 12px; bottom: 12px;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background-color: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  opacity: 0;
+  transform: translateY(8px) scale(.85);
+  transition: all .3s var(--ease);
+}
+html[data-theme="dark"] .song-card__play { color: #06120d; }
+.song-card:hover .song-card__play { opacity: 1; transform: none; }
+
+.song-card__title { font-size: 17px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 3px; }
+.song-card__album { font-size: 13px; color: var(--muted); }
+.song-card__meta { font-size: 12px; color: var(--accent); font-weight: 600; margin-top: 5px; }
+
+.empty-note {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* ---------- 7-b. 앨범 커버 흐린 배경 ----------
+   가사 모드에서 화면 전체 뒤에 앨범 커버를 크게 깔고 흐리게 만듭니다. */
+.stage-bg {
+  position: fixed;
+  inset: -60px;                 /* 블러 때문에 가장자리가 비지 않도록 넉넉히 */
+  z-index: -1;
+  background-position: center;
+  background-size: cover;
+  /* 무슨 사진인지는 알아보되, 글자 뒤가 자잘하게 복잡하지 않도록 */
+  filter: blur(28px) saturate(1.3);
+  opacity: 0;
+  transform: scale(1.08);
+  transition: opacity .8s var(--ease);
+  pointer-events: none;
+}
+/* 사진을 반투명으로 깔면 흰 배경이 비쳐 올라와 뿌옇게 됩니다.
+   그래서 사진은 불투명하게 두고, 가독성은 아래 덮개로만 조절합니다. */
+.stage-bg.is-on { opacity: 1; }
+html[data-theme="dark"] .stage-bg.is-on { opacity: .8; }
+
+/* 글자가 놓이는 가운데 띠만 살짝 덮어 가독성을 지키고,
+   위/아래는 완전히 덮어 화면 가장자리와 자연스럽게 이어지게 합니다. */
+.stage-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom,
+              rgb(var(--bg-rgb))       0%,
+              rgba(var(--bg-rgb), .42) 24%,
+              rgba(var(--bg-rgb), .42) 76%,
+              rgb(var(--bg-rgb))     100%);
+}
+
+/* ---------- 8. 플레이 화면 공통 ---------- */
+.screen--play.active { display: flex; flex-direction: column; min-height: calc(100vh - 210px); }
+
+.play-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 0 18px;
+  flex-wrap: wrap;
+}
+.play-head__id { display: flex; align-items: center; gap: 14px; }
+.play-head__cover {
+  width: 52px; height: 52px;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 6px 18px -10px rgba(0,0,0,.5);
+  flex: none;
+}
+.play-head__song { margin: 0 0 3px; font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
+.play-head__song .dim { color: var(--muted); font-weight: 400; }
+.play-head__meta { margin: 0; font-size: 13px; color: var(--muted); }
+.play-head__meta b { color: var(--text-soft); }
+.play-head__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.badge {
+  font-size: 12px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge--warn { background-color: var(--wrong-soft); color: var(--wrong); }
+.badge--wait {
+  background-color: var(--accent-soft);
+  color: var(--accent-ink);
+  animation: wait-pulse 1.4s ease-in-out infinite;
+}
+@keyframes wait-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+
+/* "노래 맞춰주기" 켜기/끄기 스위치 */
+.wait-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 15px 8px 12px;
+  transition: all .25s var(--ease);
+}
+.wait-toggle__dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background-color: var(--line-strong);
+  transition: all .25s var(--ease);
+}
+.wait-toggle.is-on { border-color: var(--accent); color: var(--accent); }
+.wait-toggle.is-on .wait-toggle__dot {
+  background-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.wait-toggle:disabled { opacity: .4; cursor: not-allowed; }
+
+.progress {
+  height: 2px;
+  background-color: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.progress__bar {
+  height: 100%;
+  width: 0%;
+  background-color: var(--accent);
+  transition: width .35s var(--ease);
+}
+
+/* ---------- 8-b. 오디오 조작 바 ---------- */
+.audio-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0 4px;
+  flex-wrap: wrap;
+}
+
+.audio-btn {
+  width: 36px; height: 36px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background-color: transparent;
+  color: var(--text-soft);
+  font-size: 11px;
+  line-height: 1;
+  display: grid; place-items: center;
+  transition: all .25s var(--ease);
+}
+.audio-btn:hover { border-color: var(--accent); color: var(--accent); }
+.audio-btn.is-paused { border-color: var(--accent); color: var(--accent); background-color: var(--accent-soft); }
+.audio-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.audio-time {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 84px;
+}
+.audio-time b { color: var(--text-soft); font-weight: 600; }
+.audio-time i { font-style: normal; }
+
+.ghost-btn--sm { padding: 8px 16px; font-size: 13px; }
+
+.audio-vol { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.audio-vol__icon { font-size: 13px; opacity: .6; }
+
+.audio-vol input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 108px;
+  height: 3px;
+  border-radius: 3px;
+  background-color: var(--line-strong);
+  outline: 0;
+  cursor: pointer;
+}
+.audio-vol input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  border: 0;
+  cursor: pointer;
+}
+.audio-vol input[type="range"]::-moz-range-thumb {
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  border: 0;
+  cursor: pointer;
+}
+
+/* 일시정지 중에는 가사를 흐리게 해서 상태를 알려줍니다 */
+.lyric-stage.is-paused { opacity: .28; filter: blur(1.5px); transition: opacity .3s var(--ease); }
+
+/* ---------- 9. 가사 타이핑 무대 ---------- */
+.lyric-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 0;
+  min-height: 380px;
+}
+
+.lyric {
+  margin: 0;
+  letter-spacing: -.01em;
+  transition: all .4s var(--ease);
+  word-break: keep-all;
+}
+
+.lyric--prev {
+  font-size: 19px;
+  color: var(--text-soft);
+  opacity: .5;
+  min-height: 30px;
+  margin-bottom: 14px;
+}
+
+.lyric-current-wrap { position: relative; margin: 8px 0 22px; }
+
+.lyric--current {
+  font-size: clamp(1.5rem, 3.4vw, 2.3rem);
+  font-weight: 600;
+  line-height: 1.85;            /* 칸 위 힌트 글자가 윗줄과 겹치지 않도록 */
+  min-height: 1.85em;
+  white-space: pre-wrap;
+  word-break: break-all;        /* 글자 칸 사이에서 줄바꿈되도록 */
+}
+
+.lyric--next  { font-size: 20px; color: var(--text-soft); opacity: .9;  min-height: 30px; }
+.lyric--next2 { font-size: 17px; color: var(--text-soft); opacity: .55; min-height: 26px; }
+
+/* ---- 글자 한 칸 ----
+   글자마다 밑줄(칸)을 그려서 어디까지 쳤는지 눈으로 보기 쉽게 만듭니다.
+   칸 안에는 "실제로 내가 친 글자"가 들어갑니다. */
+.ch {
+  position: relative;
+  display: inline-block;
+  min-width: .9em;
+  text-align: center;
+  padding-bottom: .1em;
+  /* 칸 사이를 충분히 띄워야 밑줄이 한 줄로 이어져 보이지 않습니다 */
+  margin: 0 .18em .34em 0;
+  border-bottom: 2px solid var(--cell-line);
+  transition: color .12s linear, background-color .12s linear, border-color .12s linear;
+}
+
+/* 띄어쓰기 칸 — 글자 칸보다 살짝 좁게 */
+.ch--space { min-width: .5em; }
+
+/* 아직 안 친 글자 — 이걸 읽고 쳐야 하므로 충분히 진하게 */
+.ch--todo    { color: var(--text); opacity: .55; }
+.ch--ok      { color: var(--text); border-bottom-color: var(--accent); }
+.ch--partial { color: var(--accent); border-bottom-color: var(--accent); }  /* 조합 중 + 아직 맞음 */
+
+.ch--ng,
+.ch--extra {
+  color: var(--wrong);
+  background-color: var(--wrong-soft);
+  border-bottom-color: var(--wrong);
+  border-radius: 4px 4px 0 0;
+}
+
+/* 틀렸을 때 "원래 쳐야 하는 글자"를 칸 위에 작게 알려줍니다 */
+.ch__want {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - .1em);
+  transform: translateX(-50%);
+  font-size: .44em;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1;
+  color: var(--text-soft);
+  opacity: .85;
+  white-space: pre;
+  pointer-events: none;
+}
+
+/* 지금 쳐야 할 칸 : 밑줄이 굵어지고 깜빡입니다 */
+.ch--cursor {
+  border-bottom-color: var(--accent);
+  border-bottom-width: 3px;
+  animation: blink 1.05s steps(1) infinite;
+}
+@keyframes blink { 0%, 55% { border-bottom-color: var(--accent); } 56%, 100% { border-bottom-color: var(--cell-line); } }
+
+/* 실제 입력창 : 화면에는 안 보이지만 IME(한글 조합)를 정상 동작시키기 위해
+   가사 위에 그대로 겹쳐 둡니다. */
+.type-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font: inherit;
+  font-size: clamp(1.6rem, 3.6vw, 2.5rem);
+  resize: none;
+}
+
+.hint-line {
+  margin: 0;
+  padding: 10px 0 24px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-soft);
+}
+
+/* ---------- 10. 퀴즈 무대 ---------- */
+/* ---- 정답 공개 판 (앨범 커버) ---- */
+.quiz-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background-color: var(--bg);
+  opacity: 0;
+  transition: opacity .3s var(--ease);
+}
+.quiz-reveal.is-on { opacity: 1; }
+
+.quiz-reveal__verdict {
+  margin: 0 0 18px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.quiz-reveal__verdict.is-pass { color: var(--muted); }
+
+.quiz-reveal__frame {
+  position: relative;
+  width: clamp(150px, 26vh, 216px);
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 20px 46px -22px rgba(0,0,0,.55);
+  transform: scale(.86);
+  opacity: 0;
+  transition: transform .45s var(--ease), opacity .45s var(--ease);
+}
+.quiz-reveal.is-on .quiz-reveal__frame { transform: none; opacity: 1; }
+
+.quiz-reveal__fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background-color: var(--line);
+  color: #fff;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+}
+.quiz-reveal__cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.quiz-reveal__title {
+  margin: 22px 0 0;
+  font-size: clamp(1.3rem, 3vw, 1.9rem);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  transform: translateY(8px);
+  opacity: 0;
+  transition: transform .45s .1s var(--ease), opacity .45s .1s var(--ease);
+}
+.quiz-reveal__album {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+  transform: translateY(8px);
+  opacity: 0;
+  transition: transform .45s .16s var(--ease), opacity .45s .16s var(--ease);
+}
+.quiz-reveal.is-on .quiz-reveal__title,
+.quiz-reveal.is-on .quiz-reveal__album { transform: none; opacity: 1; }
+
+.quiz-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  padding: 40px 0 60px;
+  min-height: 380px;
+  text-align: center;
+}
+
+/* 재생 중 흔들리는 음파 막대 */
+.quiz-wave { display: flex; align-items: flex-end; gap: 5px; height: 52px; }
+.quiz-wave span {
+  width: 5px;
+  height: 8px;
+  border-radius: 3px;
+  background-color: var(--line-strong);
+  transition: background-color .3s var(--ease);
+}
+.quiz-wave.is-playing span {
+  background-color: var(--accent);
+  animation: wave .95s var(--ease) infinite;
+}
+.quiz-wave.is-playing span:nth-child(1) { animation-delay: 0s; }
+.quiz-wave.is-playing span:nth-child(2) { animation-delay: .09s; }
+.quiz-wave.is-playing span:nth-child(3) { animation-delay: .18s; }
+.quiz-wave.is-playing span:nth-child(4) { animation-delay: .27s; }
+.quiz-wave.is-playing span:nth-child(5) { animation-delay: .36s; }
+.quiz-wave.is-playing span:nth-child(6) { animation-delay: .45s; }
+.quiz-wave.is-playing span:nth-child(7) { animation-delay: .54s; }
+.quiz-wave.is-playing span:nth-child(8) { animation-delay: .63s; }
+.quiz-wave.is-playing span:nth-child(9) { animation-delay: .72s; }
+@keyframes wave {
+  0%, 100% { height: 8px; }
+  50%      { height: 46px; }
+}
+
+.quiz-status { margin: 0; font-size: 15px; color: var(--text-soft); min-height: 24px; }
+.quiz-status.is-ok   { color: var(--accent); font-weight: 700; }
+.quiz-status.is-ng   { color: var(--wrong);  font-weight: 700; }
+
+.quiz-input {
+  width: min(560px, 100%);
+  border: 0;
+  border-bottom: 2px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: clamp(1.5rem, 3.4vw, 2.2rem);
+  font-weight: 600;
+  text-align: center;
+  padding: 12px 8px;
+  outline: 0;
+  transition: border-color .3s var(--ease);
+  letter-spacing: -.02em;
+}
+.quiz-input::placeholder { color: var(--muted); font-weight: 400; font-size: 1rem; letter-spacing: 0; }
+.quiz-input:focus { border-bottom-color: var(--accent); }
+.quiz-input.is-shake { animation: shake .4s var(--ease); border-bottom-color: var(--wrong); }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-9px); }
+  40%      { transform: translateX(8px); }
+  60%      { transform: translateX(-5px); }
+  80%      { transform: translateX(3px); }
+}
+
+.quiz-hint {
+  margin: 0;
+  min-height: 24px;
+  font-size: 15px;
+  color: var(--muted);
+  letter-spacing: .12em;
+  font-weight: 600;
+}
+
+/* ---------- 11. 결과 화면 ---------- */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 44px;
+}
+.stat-row--2 { grid-template-columns: repeat(2, 1fr); max-width: 520px; }
+
+.stat {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.stat i {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: .02em;
+}
+.stat b {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.stat em {
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.big-time {
+  font-size: clamp(3.4rem, 11vw, 7rem);
+  font-weight: 800;
+  letter-spacing: -.05em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  margin: 0 0 46px;
+  line-height: 1;
+}
+
+/* ---------- 12. 버튼 ---------- */
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn-row--tight { justify-content: center; margin-top: 6px; }
+
+.solid-btn {
+  border: 0;
+  border-radius: 999px;
+  background-color: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 32px;
+  transition: transform .25s var(--ease), background-color .25s var(--ease);
+}
+html[data-theme="dark"] .solid-btn { color: #06120d; }
+.solid-btn:hover { background-color: var(--accent-ink); transform: translateY(-2px); }
+
+.ghost-btn {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 24px;
+  transition: all .25s var(--ease);
+}
+.ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- 13. 반응형 ---------- */
+@media (max-width: 760px) {
+  .topbar { padding: 20px 20px 26px; }
+  main { padding: 0 20px 70px; }
+  .mode-grid { grid-template-columns: 1fr; }
+  .stat-row { grid-template-columns: repeat(2, 1fr); }
+  .hud { gap: 15px; }
+  .hud__item b { font-size: 15px; }
+  .hero { padding: 20px 0 46px; }
+  .lyric-stage { min-height: 300px; padding: 24px 0; }
+  .screen--play.active { min-height: calc(100vh - 170px); }
+}
+
+@media (max-width: 430px) {
+  .stat-row { grid-template-columns: 1fr 1fr; }
+  .stat b { font-size: 27px; }
+  .brand__text { display: none; }
+}

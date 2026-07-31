@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>가사 타임코드 찍기 — fromis_9 TYPING</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" />
+<style>
+  :root{
+    --bg:#fbfbf9; --surface:#fff; --text:#171a18; --soft:#555b56; --muted:#9aa09a;
+    --line:#e8e8e3; --strong:#d6d6cf; --accent:#0f9d76; --accent-soft:#e7f5f0; --wrong:#db4a3d;
+    --font:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6}
+  .wrap{max-width:980px;margin:0 auto;padding:38px 26px 90px}
+
+  h1{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:0 0 10px}
+  .lead{color:var(--soft);margin:0 0 34px;font-size:15px}
+  .back{display:inline-block;margin-bottom:26px;color:var(--accent);font-size:14px;font-weight:600;text-decoration:none}
+  .back:hover{text-decoration:underline}
+
+  .step{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px 24px 22px;margin-bottom:16px}
+  .step__no{font-size:11px;letter-spacing:.16em;color:var(--accent);font-weight:700;text-transform:uppercase}
+  .step__title{font-size:18px;font-weight:700;margin:6px 0 14px;letter-spacing:-.02em}
+  .step__hint{font-size:13px;color:var(--muted);margin:10px 0 0}
+
+  textarea{width:100%;min-height:150px;border:1px solid var(--strong);border-radius:10px;padding:13px 14px;
+           font:inherit;font-size:14px;line-height:1.75;resize:vertical;background:var(--bg);color:var(--text);outline:0}
+  textarea:focus{border-color:var(--accent)}
+  input[type=file]{font:inherit;font-size:14px}
+  select{width:100%;border:1px solid var(--strong);border-radius:10px;padding:13px 14px;
+         font:inherit;font-size:15px;background:var(--bg);color:var(--text);outline:0;cursor:pointer}
+  select:focus{border-color:var(--accent)}
+  .done-tag{color:var(--accent);font-weight:700}
+
+  .btn{border:0;border-radius:999px;background:var(--accent);color:#fff;font:inherit;font-size:15px;font-weight:700;
+       padding:13px 26px;cursor:pointer;transition:.2s}
+  .btn:hover{background:#0b7a5b}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn--ghost{background:transparent;color:var(--soft);border:1px solid var(--strong);font-size:14px;padding:10px 20px;font-weight:600}
+  .btn--ghost:hover{background:transparent;border-color:var(--accent);color:var(--accent)}
+  .btn--big{font-size:19px;padding:20px 40px;width:100%}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+  .player{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:14px}
+  .clock{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.03em;color:var(--accent);min-width:130px}
+
+  .now{background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:16px 18px;margin-top:14px}
+  .now__label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .now__text{font-size:21px;font-weight:700;margin-top:4px;letter-spacing:-.02em;word-break:keep-all}
+  .now__done{color:var(--muted);font-weight:500;font-size:17px}
+
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td.t{font-variant-numeric:tabular-nums;width:96px;color:var(--accent);font-weight:700}
+  td.a{width:150px;text-align:right}
+  .mini{border:1px solid var(--strong);background:transparent;color:var(--soft);border-radius:6px;
+        font:inherit;font-size:12px;padding:3px 8px;cursor:pointer;margin-left:4px}
+  .mini:hover{border-color:var(--accent);color:var(--accent)}
+
+  pre{background:#121614;color:#e6ece8;border-radius:12px;padding:18px;overflow-x:auto;font-size:13px;line-height:1.65;
+      font-family:ui-monospace,Consolas,monospace;margin:0}
+  .empty{color:var(--muted);font-size:14px;padding:22px 0;text-align:center}
+  kbd{background:var(--bg);border:1px solid var(--strong);border-bottom-width:2px;border-radius:5px;
+      padding:1px 7px;font-size:12px;font-family:inherit;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← 게임으로 돌아가기</a>
+  <h1>가사 타임코드 찍기</h1>
+  <p class="lead">
+    노래를 들으면서 가사 한 줄이 시작될 때마다 버튼(또는 스페이스바)을 누르면,
+    <code>data/songs.js</code> 에 바로 붙여넣을 수 있는 <b>lyrics 배열</b>이 만들어집니다.
+  </p>
+  <!-- 곡 목록을 쓰기 위해 게임과 같은 데이터 파일을 불러옵니다.
+       (localhost 에서는 캐시 때문에 옛날 곡 목록이 뜨지 않도록 시각을 붙입니다) -->
+  <script>
+    document.write('<scr' + 'ipt src="data/songs.js?t=' + Date.now() + '"><\/scr' + 'ipt>');
+  </script>
+
+  <!-- 1 -->
+  <div class="step">
+    <div class="step__no">Step 1</div>
+    <div class="step__title">곡 고르기</div>
+
+    <select id="song">
+      <option value="">— audio 폴더에 있는 곡 중에서 고르기 —</option>
+    </select>
+
+    <p class="step__hint" id="songHint">프로젝트에 들어있는 mp3를 바로 씁니다.</p>
+
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;font-size:13px;color:var(--soft)">목록에 없는 mp3를 직접 고르기</summary>
+      <div style="margin-top:12px">
+        <input type="file" id="file" accept="audio/*" />
+        <p class="step__hint">파일은 브라우저 안에서만 열립니다. 어디로도 올라가지 않아요.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- 2 -->
+  <div class="step">
+    <div class="step__no">Step 2</div>
+    <div class="step__title">가사 붙여넣기 (한 줄에 한 문장)</div>
+    <textarea id="lyrics" placeholder="가사 첫 줄&#10;가사 둘째 줄&#10;가사 셋째 줄"></textarea>
+    <p class="step__hint">빈 줄은 자동으로 무시됩니다. 한 줄이 너무 길면 나눠 적는 게 치기 편해요.</p>
+  </div>
+
+  <!-- 3 -->
+  <div class="step">
+    <div class="step__no">Step 3</div>
+    <div class="step__title">재생하면서 줄 시작마다 찍기</div>
+
+    <div class="player">
+      <button class="btn btn--ghost" id="play" disabled>▶ 재생</button>
+      <span class="clock" id="clock">0.00s</span>
+      <button class="btn btn--ghost" id="back5" disabled>⟲ 5초 뒤로</button>
+      <button class="btn btn--ghost" id="reset" disabled>처음부터 다시</button>
+    </div>
+
+    <div class="now">
+      <div class="now__label">다음에 찍을 줄</div>
+      <div class="now__text" id="nowText">먼저 mp3와 가사를 넣어주세요</div>
+    </div>
+
+    <div style="margin-top:14px">
+      <button class="btn btn--big" id="tap" disabled>이 줄 시작! <span style="opacity:.7;font-size:14px">(스페이스바)</span></button>
+    </div>
+    <p class="step__hint">
+      <kbd>Space</kbd> 찍기 · <kbd>Backspace</kbd> 방금 찍은 것 취소 · <kbd>P</kbd> 재생/정지
+    </p>
+  </div>
+
+  <!-- 4 -->
+  <div class="step">
+    <div class="step__no">Step 4</div>
+    <div class="step__title">찍은 결과</div>
+    <table id="table">
+      <thead><tr><th>시간</th><th>가사</th><th class="a">미세조정</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty">아직 찍은 줄이 없습니다.</div>
+  </div>
+
+  <!-- 5 -->
+  <div class="step">
+    <div class="step__no">Step 5</div>
+    <div class="step__title">복사해서 songs.js 의 lyrics 에 붙여넣기</div>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn" id="copy">📋 복사하기</button>
+      <span id="copied" style="color:var(--accent);font-weight:600;font-size:14px"></span>
+    </div>
+    <pre id="out">lyrics: []</pre>
+  </div>
+</div>
+
+<script>
+/* ================= 가사 타임코드 찍기 도구 ================= */
+
+const audio = new Audio();
+let lines = [];      // 붙여넣은 가사 줄
+let stamps = [];     // 찍은 시간 (lines 와 같은 순서)
+let ready = false;
+
+const $ = (id) => document.getElementById(id);
+
+/* ---- 곡 목록 채우기 (data/songs.js 의 SONGS 를 그대로 씁니다) ---- */
+const sel = $("song");
+if (typeof SONGS !== "undefined") {
+  SONGS.filter(s => s.audio).forEach((s, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    // 이미 가사가 들어있는 곡은 표시해 둡니다
+    opt.textContent = s.title + "  ·  " + (s.album || "") +
+                      (s.lyrics && s.lyrics.length ? "   ✓ 가사 " + s.lyrics.length + "줄" : "");
+    opt.dataset.audio = s.audio;
+    sel.appendChild(opt);
+  });
+}
+
+sel.addEventListener("change", () => {
+  const opt = sel.selectedOptions[0];
+  if (!opt || !opt.dataset.audio) { ready = false; refresh(); return; }
+
+  const s = SONGS.filter(x => x.audio)[Number(sel.value)];
+  audio.pause();
+  audio.src = opt.dataset.audio;
+  audio.load();
+  audio.currentTime = 0;
+  ready = true;
+  stamps = [];
+
+  // 이미 가사가 있으면 그대로 불러와 다시 찍을 수 있게 합니다
+  if (s.lyrics && s.lyrics.length) {
+    $("lyrics").value = s.lyrics.map(l => l.text).join("\n");
+    $("lyrics").dispatchEvent(new Event("input"));
+    $("songHint").innerHTML =
+      '이 곡엔 이미 가사 <b>' + s.lyrics.length + '줄</b>이 있어서 아래에 불러왔습니다. ' +
+      '다시 찍으면 새 시간으로 바뀝니다.';
+  } else {
+    $("songHint").innerHTML = '<b>' + s.title + '</b> 준비 완료. 아래에 가사를 붙여넣으세요.';
+  }
+  refresh();
+});
+
+/* ---- (대안) mp3 파일 직접 고르기 ---- */
+$("file").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  sel.value = "";
+  audio.pause();
+  audio.src = URL.createObjectURL(f);
+  audio.load();
+  audio.currentTime = 0;
+  ready = true;
+  stamps = [];
+  $("songHint").textContent = "직접 고른 파일: " + f.name;
+  refresh();
+});
+
+/* ---- 가사 입력 ---- */
+$("lyrics").addEventListener("input", () => {
+  lines = $("lyrics").value.split("\n").map(s => s.trim()).filter(Boolean);
+  // 줄 수가 줄면 초과분은 버립니다
+  stamps = stamps.slice(0, lines.length);
+  refresh();
+});
+
+/* ---- 재생 / 정지 ---- */
+function togglePlay() {
+  if (!ready) return;
+  if (audio.paused) audio.play().catch(() => {});
+  else audio.pause();
+  refresh();
+}
+$("play").addEventListener("click", togglePlay);
+
+$("back5").addEventListener("click", () => {
+  audio.currentTime = Math.max(0, audio.currentTime - 5);
+});
+
+$("reset").addEventListener("click", () => {
+  audio.pause();
+  audio.currentTime = 0;
+  stamps = [];
+  refresh();
+});
+
+/* ---- 핵심: 지금 시각을 찍습니다 ---- */
+function tap() {
+  if (!ready || stamps.length >= lines.length) return;
+  stamps.push(Math.round(audio.currentTime * 100) / 100);
+  refresh();
+}
+$("tap").addEventListener("click", tap);
+
+/* ---- 방금 찍은 것 취소 ---- */
+function undo() {
+  stamps.pop();
+  refresh();
+}
+
+/* ---- 키보드 단축키 ---- */
+document.addEventListener("keydown", (e) => {
+  // 가사 입력창에 타이핑 중일 때는 단축키를 끕니다
+  if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT") return;
+
+  if (e.code === "Space")     { e.preventDefault(); tap(); }
+  if (e.code === "Backspace") { e.preventDefault(); undo(); }
+  if (e.key.toLowerCase() === "p") { e.preventDefault(); togglePlay(); }
+});
+
+/* ---- 시간 미세조정 (±0.1 / ±0.5초) ---- */
+function nudge(i, delta) {
+  stamps[i] = Math.max(0, Math.round((stamps[i] + delta) * 100) / 100);
+  refresh();
+}
+
+/* ---- 화면 갱신 ---- */
+function refresh() {
+  const canTap = ready && stamps.length < lines.length;
+
+  $("play").disabled = !ready;
+  $("back5").disabled = !ready;
+  $("reset").disabled = !ready;
+  $("tap").disabled = !canTap;
+  $("play").textContent = audio.paused ? "▶ 재생" : "❚❚ 정지";
+
+  // 다음에 찍을 줄
+  const nowEl = $("nowText");
+  if (!ready)                       { nowEl.textContent = "먼저 곡을 골라주세요"; nowEl.className = "now__text"; }
+  else if (lines.length === 0)      { nowEl.textContent = "가사를 붙여넣어 주세요"; nowEl.className = "now__text"; }
+  else if (stamps.length >= lines.length) {
+    nowEl.textContent = "전부 찍었습니다! 아래 결과를 복사하세요 ✓";
+    nowEl.className = "now__text now__done";
+  } else {
+    nowEl.textContent = lines[stamps.length];
+    nowEl.className = "now__text";
+  }
+
+  // 표
+  const tb = $("tbody");
+  tb.innerHTML = "";
+  stamps.forEach((t, i) => {
+    const tr = document.createElement("tr");
+
+    const td1 = document.createElement("td");
+    td1.className = "t";
+    td1.textContent = t.toFixed(2) + "s";
+
+    const td2 = document.createElement("td");
+    td2.textContent = lines[i];
+
+    const td3 = document.createElement("td");
+    td3.className = "a";
+    [["-0.5",-0.5],["-0.1",-0.1],["+0.1",0.1],["+0.5",0.5]].forEach(([label, d]) => {
+      const b = document.createElement("button");
+      b.className = "mini";
+      b.textContent = label;
+      b.addEventListener("click", () => nudge(i, d));
+      td3.appendChild(b);
+    });
+
+    tr.append(td1, td2, td3);
+    tb.appendChild(tr);
+  });
+  $("empty").style.display = stamps.length ? "none" : "block";
+
+  // 붙여넣기용 코드
+  if (stamps.length === 0) {
+    $("out").textContent = "lyrics: []";
+  } else {
+    const rows = stamps.map((t, i) =>
+      '      { time: ' + t.toFixed(2) + ', text: "' + lines[i].replace(/"/g, '\\"') + '" }'
+    );
+    $("out").textContent = "    lyrics: [\n" + rows.join(",\n") + "\n    ]";
+  }
+}
+
+/* ---- 시계 ---- */
+function tickClock() {
+  $("clock").textContent = audio.currentTime.toFixed(2) + "s";
+  requestAnimationFrame(tickClock);
+}
+tickClock();
+
+audio.addEventListener("play", refresh);
+audio.addEventListener("pause", refresh);
+
+/* ---- 복사 ---- */
+$("copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("out").textContent);
+    $("copied").textContent = "복사했습니다!";
+  } catch (e) {
+    // 클립보드 권한이 없으면 직접 선택하게 합니다
+    const r = document.createRange();
+    r.selectNodeContents($("out"));
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    $("copied").textContent = "Ctrl+C 를 눌러 복사하세요";
+  }
+  setTimeout(() => { $("copied").textContent = ""; }, 2500);
+});
+
+refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fromis_9 TYPING</title>
+  <meta name="description" content="프로미스나인 팬을 위한 가사 타이핑 · 인트로 퀴즈 웹 게임" />
+
+  <!-- 한글 웹폰트 Pretendard (인터넷이 없으면 아래 시스템 폰트로 자동 대체됩니다) -->
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" />
+  <!-- style.css 도 로컬에서는 캐시되지 않게 (아래 script 설명 참고) -->
+  <script>
+    (function () {
+      var host = location.hostname;
+      var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
+      document.write('<link rel="stylesheet" href="style.css' + (dev ? "?t=" + Date.now() : "") + '">');
+    })();
+  </script>
+  <noscript><link rel="stylesheet" href="style.css" /></noscript>
+</head>
+<body>
+
+  <!-- 가사 모드에서 앨범 커버를 흐리게 깔아두는 배경 레이어 -->
+  <div class="stage-bg" id="stageBg" aria-hidden="true"></div>
+
+  <!-- ============ 상단 바 ============ -->
+  <header class="topbar">
+    <button class="brand" id="btnHome" type="button">
+      <img class="brand__logo" src="images/logo.png" alt="fromis_9" />
+      <span class="brand__text">fromis_9 <b>TYPING</b></span>
+    </button>
+
+    <div class="topbar__right">
+      <!-- 게임 중에만 보이는 실시간 지표 -->
+      <div class="hud" id="hud" hidden>
+        <span class="hud__item"><i>정확도</i><b id="hudAcc">100%</b></span>
+        <span class="hud__item"><i>타수</i><b id="hudCpm">0</b></span>
+        <span class="hud__item hud__item--time"><i>시간</i><b id="hudTime">0.0s</b></span>
+      </div>
+      <button class="icon-btn" id="btnTheme" type="button" title="라이트/다크 모드 전환" aria-label="테마 전환">
+        <span id="themeIcon">◐</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============ 화면 1 : 시작 화면 ============ -->
+    <section class="screen active" id="screen-home">
+      <div class="hero">
+        <p class="hero__eyebrow">
+          <img class="hero__logo" src="images/logo.png" alt="" />
+          플로버를 위한 타이핑 게임
+        </p>
+        <h1 class="hero__title">프로미스나인 노래,<br />얼마나 아세요?</h1>
+        <p class="hero__sub">원하는 모드를 골라 시작하세요.</p>
+      </div>
+
+      <!-- 앨범 커버가 천천히 흘러가는 띠 (JS가 covers 를 채웁니다) -->
+      <div class="marquee" id="albumMarquee" aria-hidden="true">
+        <div class="marquee__track" id="marqueeTrack"></div>
+      </div>
+
+      <!-- 카드 위쪽에는 각 모드의 실제 화면을 축소해서 미리 보여줍니다 -->
+      <div class="mode-grid">
+        <button class="mode-card" id="btnModeLyrics" type="button">
+          <!-- Vitamin ME 가사 한 구절 (배경은 같은 앨범 커버를 흐리게) -->
+          <span class="mode-card__demo demo--vitamin">
+            <span class="demo-line">
+              <span class="demo-ch is-ok">C</span><span class="demo-ch is-ok">a</span><span class="demo-ch is-ok">l</span><span class="demo-ch is-ok">l</span><span class="demo-ch is-space is-ok"></span><span class="demo-ch is-ok">i</span><span class="demo-ch is-ok">t</span><span class="demo-ch is-space is-ok"></span><span class="demo-ch is-ok">V</span><span class="demo-ch is-ok">i</span><span class="demo-ch is-ng">l<i>t</i></span><span class="demo-ch is-cur">a</span><span class="demo-ch">m</span><span class="demo-ch">i</span><span class="demo-ch">n</span><span class="demo-ch is-space"></span><span class="demo-ch">M</span><span class="demo-ch">E</span>
+            </span>
+            <span class="demo-caption">Vitamin ME · 정확도 96% · 412 CPM</span>
+          </span>
+          <span class="mode-card__body">
+            <span class="mode-card__no">01</span>
+            <span class="mode-card__title">가사 타이핑</span>
+            <span class="mode-card__desc">노래를 들으며 흘러나오는 가사를 실시간으로<br />따라칩니다. 정확도와 타수를 재요.</span>
+            <span class="mode-card__go">시작하기 →</span>
+          </span>
+        </button>
+
+        <button class="mode-card" id="btnModeQuiz" type="button">
+          <span class="mode-card__demo">
+            <span class="demo-quiz">
+              <span class="demo-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="demo-cover" id="demoCover"></span>
+            </span>
+            <span class="demo-caption">00:47.7 · 16곡 완주</span>
+          </span>
+          <span class="mode-card__body">
+            <span class="mode-card__no">02</span>
+            <span class="mode-card__title">인트로 퀴즈</span>
+            <span class="mode-card__desc">도입부만 듣고 곡 제목을 최대한 빨리 타이핑.<br />전체 완주 시간을 재는 스피드런.</span>
+            <span class="mode-card__go">시작하기 →</span>
+          </span>
+        </button>
+      </div>
+
+      <p class="foot-note">
+        위 웹사이트는 비영리 목적으로 제작됐으며, 기타 문의는 @gimhyungyu로 연락 바랍니다.
+      </p>
+    </section>
+
+    <!-- ============ 화면 2 : 곡 선택 (가사 모드) ============ -->
+    <section class="screen" id="screen-select">
+      <div class="page-head">
+        <p class="page-head__eyebrow">모드 01</p>
+        <h2 class="page-head__title">곡을 고르세요</h2>
+        <p class="page-head__sub">가사가 등록된 곡만 표시됩니다.</p>
+      </div>
+      <div class="song-grid" id="songGrid"></div>
+    </section>
+
+    <!-- ============ 화면 3 : 가사 타이핑 플레이 ============ -->
+    <section class="screen screen--play" id="screen-lyrics">
+      <div class="play-head">
+        <div class="play-head__id">
+          <img class="play-head__cover" id="playCover" alt="" hidden />
+          <div>
+            <p class="play-head__song" id="playSongTitle">곡 제목</p>
+            <p class="play-head__meta"><span id="playProgressText">1 / 10</span> 줄</p>
+          </div>
+        </div>
+        <div class="play-head__actions">
+          <span class="badge badge--warn" id="noAudioBadge" hidden>오디오 파일 없음</span>
+          <button class="ghost-btn" id="btnQuitLyrics" type="button">그만두기</button>
+        </div>
+      </div>
+
+      <div class="progress"><div class="progress__bar" id="playProgressBar"></div></div>
+
+      <!-- 오디오 조작 바 : 재생/일시정지 · 위치 · 볼륨 -->
+      <div class="audio-bar" id="audioBar">
+        <button class="audio-btn" id="btnPlayPause" type="button" title="일시정지 / 다시 재생 (F2)">❚❚</button>
+        <span class="audio-time"><b id="audioNow">0:00</b> <i id="audioTotal">/ 0:00</i></span>
+
+        <!-- 켜두면 내가 아직 줄을 다 못 쳤을 때 노래가 멈춰서 기다려줍니다 -->
+        <button class="wait-toggle" id="btnAutoWait" type="button"
+                title="켜두면 내 타자 속도에 맞춰 노래가 멈춰서 기다려줍니다">
+          <span class="wait-toggle__dot"></span>노래 맞춰주기
+        </button>
+        <span class="badge badge--wait" id="waitBadge" hidden>기다리는 중…</span>
+
+        <label class="audio-vol" title="볼륨">
+          <span class="audio-vol__icon" id="volIcon">🔊</span>
+          <input type="range" id="volume" min="0" max="100" step="1" value="80" aria-label="볼륨" />
+        </label>
+      </div>
+
+      <!-- 가사 표시 영역 : 이전 줄 / 현재 줄 / 다음 줄 미리보기 -->
+      <div class="lyric-stage" id="lyricStage">
+        <p class="lyric lyric--prev" id="linePrev"></p>
+        <div class="lyric-current-wrap">
+          <p class="lyric lyric--current" id="lineCurrent"></p>
+          <!-- 실제 입력을 받는 투명 입력창 (글자는 위 p 태그가 직접 그립니다) -->
+          <input class="type-input" id="typeInput" type="text"
+                 autocomplete="off" autocorrect="off" autocapitalize="off"
+                 spellcheck="false" aria-label="가사 입력" />
+        </div>
+        <p class="lyric lyric--next" id="lineNext"></p>
+        <p class="lyric lyric--next2" id="lineNext2"></p>
+      </div>
+
+      <p class="hint-line">줄을 다 치면 <b>스페이스바</b>로 다음 줄 · <b>Enter</b>는 언제든 넘기기 · 정확히 다 치면 자동으로 넘어갑니다</p>
+    </section>
+
+    <!-- ============ 화면 4 : 가사 모드 결과 ============ -->
+    <section class="screen" id="screen-lyrics-result">
+      <div class="page-head">
+        <p class="page-head__eyebrow">결과</p>
+        <h2 class="page-head__title" id="resultSongTitle">곡 제목</h2>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><i>평균 타수</i><b id="rsCpm">0</b><em>CPM</em></div>
+        <div class="stat"><i>정확도</i><b id="rsAcc">0%</b><em>Accuracy</em></div>
+        <div class="stat"><i>소요 시간</i><b id="rsTime">0s</b><em>Time</em></div>
+        <div class="stat"><i>영문 기준</i><b id="rsWpm">0</b><em>WPM</em></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="solid-btn" id="btnRetryLyrics" type="button">다시하기</button>
+        <button class="ghost-btn" id="btnChangeSong" type="button">곡 바꾸기</button>
+        <button class="ghost-btn" id="btnHomeFromLyrics" type="button">시작 화면</button>
+      </div>
+    </section>
+
+    <!-- ============ 화면 5 : 퀴즈 시작 안내 ============ -->
+    <section class="screen" id="screen-quiz-intro">
+      <div class="page-head">
+        <p class="page-head__eyebrow">모드 02</p>
+        <h2 class="page-head__title">인트로 퀴즈 스피드런</h2>
+        <p class="page-head__sub">
+          곡의 도입부가 순서대로 재생됩니다. 곡 제목을 타이핑하고 Enter를 누르세요.<br />
+          모든 문제를 맞히는 데 걸린 <b>전체 시간</b>을 잽니다.
+        </p>
+      </div>
+
+      <div class="stat-row stat-row--2">
+        <div class="stat"><i>출제 곡 수</i><b id="qiCount">0</b><em>Songs</em></div>
+        <div class="stat"><i>내 최고 기록</i><b id="qiBest">--</b><em>Best</em></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="solid-btn" id="btnQuizStart" type="button">스피드런 시작</button>
+        <button class="ghost-btn" id="btnHomeFromQuizIntro" type="button">시작 화면</button>
+      </div>
+    </section>
+
+    <!-- ============ 화면 6 : 퀴즈 플레이 ============ -->
+    <section class="screen screen--play" id="screen-quiz">
+      <div class="play-head">
+        <div>
+          <p class="play-head__song">Q<span id="quizNo">1</span> <span class="dim">/ <span id="quizTotal">8</span></span></p>
+          <p class="play-head__meta">틀린 횟수 <b id="quizWrong">0</b> · 패스 <b id="quizPass">0</b></p>
+        </div>
+        <div class="play-head__actions">
+          <span class="badge badge--warn" id="quizNoAudioBadge" hidden>오디오 파일 없음</span>
+          <button class="ghost-btn" id="btnQuitQuiz" type="button">그만두기</button>
+        </div>
+      </div>
+
+      <div class="progress"><div class="progress__bar" id="quizProgressBar"></div></div>
+
+      <div class="quiz-stage">
+        <div class="quiz-wave" id="quizWave">
+          <span></span><span></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <p class="quiz-status" id="quizStatus">인트로 재생 중…</p>
+
+        <input class="quiz-input" id="quizInput" type="text" placeholder="곡 제목을 입력하고 Enter"
+               autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+               aria-label="곡 제목 입력" />
+
+        <p class="quiz-hint" id="quizHint"></p>
+
+        <div class="btn-row btn-row--tight">
+          <button class="ghost-btn" id="btnReplay" type="button">다시 듣기</button>
+          <button class="ghost-btn" id="btnPass" type="button">패스</button>
+        </div>
+
+        <!-- 정답을 맞히면(또는 패스하면) 앨범 커버를 보여주는 판 -->
+        <div class="quiz-reveal" id="quizReveal" hidden>
+          <p class="quiz-reveal__verdict" id="revealVerdict">정답!</p>
+          <div class="quiz-reveal__frame">
+            <div class="quiz-reveal__fallback" id="revealFallback"></div>
+            <img class="quiz-reveal__cover" id="revealCover" alt="" />
+          </div>
+          <p class="quiz-reveal__title" id="revealTitle"></p>
+          <p class="quiz-reveal__album" id="revealAlbum"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 화면 7 : 퀴즈 결과 ============ -->
+    <section class="screen" id="screen-quiz-result">
+      <div class="page-head">
+        <p class="page-head__eyebrow">완주</p>
+        <h2 class="page-head__title" id="quizResultTitle">기록 달성!</h2>
+      </div>
+
+      <div class="big-time" id="qrTime">00:00.0</div>
+
+      <div class="stat-row">
+        <div class="stat"><i>문제 수</i><b id="qrCount">0</b><em>Songs</em></div>
+        <div class="stat"><i>틀린 횟수</i><b id="qrWrong">0</b><em>Miss</em></div>
+        <div class="stat"><i>패스</i><b id="qrPass">0</b><em>Pass</em></div>
+        <div class="stat"><i>최고 기록</i><b id="qrBest">--</b><em>Best</em></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="solid-btn" id="btnRetryQuiz" type="button">다시하기</button>
+        <button class="ghost-btn" id="btnHomeFromQuiz" type="button">시작 화면</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 곡 데이터 → 게임 로직 순서로 불러옵니다.
+       로컬에서 작업할 때 브라우저가 옛날 파일을 캐시해서
+       songs.js 를 고쳐도 반영이 안 되는 일이 흔합니다.
+       그래서 localhost 에서만 주소 뒤에 시각을 붙여 항상 새로 받게 합니다.
+       (GitHub Pages 에 올린 뒤에는 캐시를 그대로 써서 빠르게 열립니다) -->
+  <script>
+    (function () {
+      var host = location.hostname;
+      var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
+      var bust = dev ? "?t=" + Date.now() : "";
+
+      ["data/songs.js", "game.js"].forEach(function (src) {
+        var el = document.createElement("script");
+        el.src = src + bust;
+        el.async = false;          // 적어둔 순서대로 실행되게 합니다
+        document.head.appendChild(el);
+      });
+    })();
+  </script>
+</body>
+</html>
