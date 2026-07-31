@@ -257,6 +257,38 @@ function goBack() {
   showScreen(to);
 }
 
+/* ---- 작은 커버(썸네일) ----
+   커버 원본은 800px 인데 시작 화면 띠(108px)나 곡 목록(약 200px)에서는
+   그렇게 클 필요가 없습니다. 그래서 covers/thumb/ 의 400px 짜리를 씁니다.
+   (16장 기준 1.66MB → 0.45MB)
+
+   썸네일이 없는 곡은 자동으로 원본을 씁니다. 그러니 곡을 새로 추가할 때
+   썸네일을 안 만들어도 그냥 동작합니다. */
+
+/** 커버 경로 → 썸네일 경로 (covers/dm.jpg → covers/thumb/dm.jpg) */
+function thumbOf(cover) {
+  if (!cover) return "";
+  const name = cover.split("/").pop().replace(/\.[^.]+$/, "");
+  return "covers/thumb/" + name + ".jpg";
+}
+
+/** 썸네일을 먼저 쓰고, 없으면 원본으로 되돌아가는 <img> 를 만듭니다 */
+function makeCoverImg(cover) {
+  const img = document.createElement("img");
+  img.alt = "";
+  img.decoding = "async";
+  img.dataset.full = cover;
+  img.addEventListener("error", function onErr() {
+    // 썸네일이 없으면 원본으로 한 번 다시 시도
+    if (img.dataset.full && img.src.indexOf("/thumb/") !== -1) {
+      img.src = img.dataset.full;
+    } else {
+      img.remove();
+    }
+  });
+  return img;
+}
+
 /** SONG_ORDER 에 적힌 순서대로 곡을 정렬합니다.
  *  목록에 없는 곡은 맨 뒤로 보냅니다. */
 function orderedSongs() {
@@ -563,11 +595,8 @@ const Lyrics = (() => {
 
       // 커버 이미지가 있으면 얹고, 로드에 실패하면 대체 썸네일을 그대로 둡니다
       if (s.cover) {
-        const img = document.createElement("img");
-        img.alt = "";
-        img.loading = "lazy";
-        img.addEventListener("error", () => img.remove());
-        img.src = s.cover;
+        const img = makeCoverImg(s.cover);
+        img.src = thumbOf(s.cover);
         coverBox.insertBefore(img, fallback.nextSibling);
       }
 
@@ -1809,11 +1838,8 @@ function renderMarquee() {
     box.className = "marquee__item";
     if (s.color) box.style.backgroundColor = s.color;
 
-    const img = document.createElement("img");
-    img.alt = "";
-    img.decoding = "async";
-    img.addEventListener("error", () => img.remove());
-    img.dataset.src = s.cover;   // 아래에서 한꺼번에 넣어줍니다
+    const img = makeCoverImg(s.cover);
+    img.dataset.src = thumbOf(s.cover);   // 아래에서 한꺼번에 넣어줍니다
 
     box.appendChild(img);
     box.title = s.title + " · " + (s.album || "");
@@ -1842,10 +1868,8 @@ function renderDemoCover() {
   if (!box || list.length === 0) return;
 
   const s = list[Math.floor(Math.random() * list.length)];
-  const img = document.createElement("img");
-  img.alt = "";
-  img.addEventListener("error", () => img.remove());
-  img.src = s.cover;
+  const img = makeCoverImg(s.cover);
+  img.src = thumbOf(s.cover);
   box.style.backgroundColor = s.color || "";
   box.replaceChildren(img);
 }
