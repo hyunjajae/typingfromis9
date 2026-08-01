@@ -532,6 +532,7 @@ const Lyrics = (() => {
   let hasTimes = false;   // 이 곡의 가사에 쓸만한 시간 정보가 있는지
   let running = false;
   let hudRaf = null;
+  let history = [];       // 되돌리기용 기록 (줄을 넘길 때마다 쌓임)
   // 브라우저는 조합이 끝날 때 compositionend 와 input 을 연달아 보냅니다.
   // 그래서 줄넘김이 두 번 실행되지 않도록 잠금 장치를 둡니다.
   let advancing = false;
@@ -636,6 +637,8 @@ const Lyrics = (() => {
     running = true;
     waiting = false;
     audioEnded = false;
+    history = [];
+    hideSkipToast();
     $("#waitBadge").hidden = true;
 
     // 가사에 쓸만한 시간 정보가 있어야 "기다려주기"가 동작합니다
@@ -906,6 +909,7 @@ const Lyrics = (() => {
     // 줄을 정확히 다 쳤으면 자동으로 다음 줄
     if (!composing && sameLine(val, target) && !advancing) {
       advancing = true;
+      pushHistory();
       idx++;
       setTimeout(loadLine, 90);
     }
@@ -918,12 +922,75 @@ const Lyrics = (() => {
     }
   }
 
+  /* ---- 이전 줄로 되돌리기 ----
+     실수로 Enter 를 눌러 줄을 건너뛰어도 되살릴 수 있게,
+     줄을 넘길 때마다 그 순간의 상태를 저장해 둡니다.
+     줄 번호뿐 아니라 "치던 글자"와 "정확도·타수 기록"까지 함께 되돌려야
+     되돌린 줄을 다시 칠 때 기록이 두 번 세어지지 않습니다. */
+
+  const HISTORY_MAX = 60;
+
+  function pushHistory() {
+    history.push({
+      idx: idx,
+      value: input.value,
+      settled: settled,
+      stat: { typed: stat.typed, wrong: stat.wrong, strokes: stat.strokes }
+    });
+    if (history.length > HISTORY_MAX) history.shift();
+  }
+
+  /** 한 줄 뒤로. 되돌릴 게 없으면 false 를 돌려줍니다. */
+  function undoLine() {
+    if (!running || paused || history.length === 0) return false;
+
+    const h = history.pop();
+    advancing = true;              // loadLine 이 다시 false 로 돌려놓습니다
+    idx = h.idx;
+    stat = h.stat;
+
+    loadLine();                    // 목표 줄·미리보기·진행률을 되돌린 줄로 맞춤
+
+    // loadLine 이 입력창을 비우므로, 치던 내용을 다시 넣어줍니다
+    input.value = h.value;
+    settled = h.settled;
+    render();
+
+    // 노래도 그 줄 시작으로 되감습니다
+    if (hasTimes && Audio9.hasFile && !audioEnded && lines[idx]) {
+      Audio9.seek(lines[idx].time);
+    }
+
+    hideSkipToast();
+    input.focus();
+    return true;
+  }
+
+  /* ---- "줄을 건너뛰었어요" 안내 ---- */
+  let toastTimer = null;
+
+  function showSkipToast() {
+    const el = $("#skipToast");
+    el.hidden = false;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideSkipToast, 4500);
+  }
+
+  function hideSkipToast() {
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    $("#skipToast").hidden = true;
+  }
+
   /** 다음 줄로 넘기기 (Enter 로 건너뛸 때) */
   function goNextLine() {
     if (advancing) return;
+    // 줄을 덜 친 채 넘어가는 경우에만 되돌리는 방법을 알려줍니다
+    const skipped = input.value.length < target.length;
     advancing = true;
+    pushHistory();
     idx++;
     loadLine();
+    if (skipped) showSkipToast();
   }
 
   /* ---- 결과 계산 ---- */
@@ -932,6 +999,8 @@ const Lyrics = (() => {
     timerPause();
     Audio9.stop();
     resetPauseUi();
+    hideSkipToast();
+    history = [];
     if (hudRaf) cancelAnimationFrame(hudRaf);
 
     const sec = elapsedSec();
@@ -1010,6 +1079,8 @@ const Lyrics = (() => {
     timerPause();
     Audio9.stop();
     resetPauseUi();
+    hideSkipToast();
+    history = [];
     setStageBg("");
     if (hudRaf) cancelAnimationFrame(hudRaf);
   }
@@ -1047,6 +1118,16 @@ const Lyrics = (() => {
       goNextLine();
     }
 
+    // Backspace : 입력창이 비어 있으면 이전 줄로 돌아갑니다.
+    // (글자가 남아 있으면 평소처럼 한 글자씩 지웁니다)
+    if (e.key === "Backspace" && !e.isComposing && input.value.length === 0) {
+      if (history.length > 0) {
+        e.preventDefault();
+        undoLine();
+        return;
+      }
+    }
+
     // 스페이스바 : 줄 끝에서는 "다음 줄로" 역할을 합니다.
     // (다 치고 나면 자연스럽게 스페이스를 누르게 되니까요)
     if (e.key === " " && !e.isComposing) {
@@ -1077,7 +1158,10 @@ const Lyrics = (() => {
     setTimeout(() => input.focus(), 0);
   });
 
-  return { renderSongList, start, quit, finish, togglePause, initAutoWaitToggle, getSong: () => song };
+  // 안내 팝업의 "되돌리기" 버튼
+  $("#btnUndoLine").addEventListener("click", () => undoLine());
+
+  return { renderSongList, start, quit, finish, togglePause, undoLine, initAutoWaitToggle, getSong: () => song };
 })();
 
 /* ======================= 5. 모드 2 : 인트로 퀴즈 ======================= */

@@ -173,7 +173,14 @@
         <p class="lyric lyric--next2" id="lineNext2"></p>
       </div>
 
-      <p class="hint-line">줄을 다 치면 <b>스페이스바</b>로 다음 줄 · <b>Enter</b>는 언제든 넘기기 · 정확히 다 치면 자동으로 넘어갑니다</p>
+      <p class="hint-line">줄을 다 치면 <b>스페이스바</b>로 다음 줄 · <b>Enter</b>는 언제든 넘기기 · <b>Backspace</b>로 이전 줄</p>
+
+      <!-- 줄을 덜 친 채 넘어갔을 때 잠깐 떴다 사라지는 안내 -->
+      <div class="skip-toast" id="skipToast" hidden>
+        <span class="skip-toast__msg">줄을 건너뛰었어요</span>
+        <button class="skip-toast__btn" id="btnUndoLine" type="button">되돌리기</button>
+        <span class="skip-toast__key">Backspace</span>
+      </div>
     </section>
 
     <!-- ============ 화면 4 : 가사 모드 결과 ============ -->

@@ -859,6 +859,57 @@ html[data-theme="dark"] .stage-bg.is-on { opacity: .8; }
   color: var(--text-soft);
 }
 
+/* ---- 줄을 건너뛰었을 때 잠깐 뜨는 안내 ---- */
+.skip-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 11px 14px 11px 20px;
+  box-shadow: 0 16px 40px -22px rgba(0, 0, 0, .6);
+  font-size: 14px;
+  white-space: nowrap;
+  animation: toast-in .28s var(--ease) both;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 14px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+.skip-toast__msg { color: var(--text-soft); font-weight: 500; }
+.skip-toast__btn {
+  border: 0;
+  border-radius: 999px;
+  background-color: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  padding: 8px 16px;
+  transition: background-color .2s var(--ease);
+}
+html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
+.skip-toast__btn:hover { background-color: var(--accent-ink); }
+.skip-toast__key {
+  font-size: 11.5px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+
+@media (max-width: 560px) {
+  .skip-toast { font-size: 13px; padding: 10px 12px 10px 16px; gap: 9px; bottom: 18px; }
+  .skip-toast__key { display: none; }
+}
+
 /* ---------- 10. 퀴즈 무대 ---------- */
 /* ---- 정답 공개 판 (앨범 커버) ---- */
 .quiz-reveal {
