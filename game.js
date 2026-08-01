@@ -968,7 +968,8 @@ const Lyrics = (() => {
         { label: "소요 시간", value: fmtTime(sec) },
         { label: "내 최고", value: (shown ? shown.cpm : cpm) + "" }
       ],
-      shareText: "fromis_9 «" + song.title + "» 가사 타이핑 " + cpm + " CPM / 정확도 " + acc + "%\n#fromis_9 #프로미스나인 #플로버"
+      shareText: "fromis_9 «" + song.title + "» 가사 타이핑 " + cpm + " CPM / 정확도 " + acc + "%\n" +
+                 "https://typingfromis9.kr\n#fromis_9 #프로미스나인 #플로버"
     });
 
     Ranking.offer({
@@ -1330,7 +1331,8 @@ const Quiz = (() => {
         { label: "틀린 횟수", value: String(wrong) },
         { label: "패스", value: String(passed) }
       ],
-      shareText: "fromis_9 인트로 퀴즈 " + count + "곡을 " + fmtClock(sec) + " 만에 완주했어요! (오답 " + wrong + "회)\n#fromis_9 #프로미스나인 #플로버"
+      shareText: "fromis_9 인트로 퀴즈 " + count + "곡을 " + fmtClock(sec) + " 만에 완주했어요! (오답 " + wrong + "회)\n" +
+                 "https://typingfromis9.kr\n#fromis_9 #프로미스나인 #플로버"
     });
 
     Ranking.offer({
@@ -1488,10 +1490,14 @@ const Share = (() => {
       ctx.fillText(s.value, x + 26, y + 116);
     });
 
-    // 아래 사이트 이름
+    // 아래 사이트 이름 + 주소 (공유받은 사람이 바로 찾아올 수 있게)
     ctx.fillStyle = "rgba(255,255,255,.5)";
-    ctx.font = "600 28px " + FONT;
-    ctx.fillText("fromis_9 TYPING  ·  플로버를 위한 타이핑 게임", 110, 960);
+    ctx.font = "600 26px " + FONT;
+    ctx.fillText("fromis_9 TYPING  ·  플로버를 위한 타이핑 게임", 110, 934);
+
+    ctx.fillStyle = "#6ef0be";
+    ctx.font = "800 40px " + FONT;
+    ctx.fillText("typingfromis9.kr", 110, 990);
 
     return c;
   }
