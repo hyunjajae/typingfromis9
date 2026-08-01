@@ -71,7 +71,15 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="index.html">← 게임으로 돌아가기</a>
+  <a class="back" href="tools.html">← 도구 목록</a>
+
+  <!-- 파일을 직접 열었을 때만 뜨는 경고 -->
+  <div id="fileWarn" style="display:none;background:#fdeceb;border:1px solid var(--wrong);
+       color:#8c2b22;border-radius:12px;padding:18px 20px;margin:0 0 24px;font-size:14.5px">
+    <b style="color:var(--wrong)">⚠ 이렇게 열면 노래가 안 나옵니다.</b><br />
+    지금 파일을 직접 연 상태(<code>file://</code>)라 브라우저가 보안 때문에 mp3를 못 읽습니다.<br /><br />
+    프로젝트 폴더의 <b>도구 열기.bat</b> 을 더블클릭해서 여세요.
+  </div>
   <h1>가사 타이밍 미세조정</h1>
   <p class="lead">
     한 줄씩 <b>반복 재생</b>하면서 시작 시각을 0.05초 단위로 다듬습니다.
@@ -174,6 +182,11 @@ let blobUrl = null;   // 통째로 받아둔 mp3 주소
    원하는 지점으로 못 건너뜁니다(seekable 0~0).
    미세조정은 정확한 탐색이 핵심이라, 파일을 통째로 받아서 씁니다. */
 async function loadAudio(src) {
+  // 파일을 직접 연 경우(file://)에는 브라우저가 mp3 읽기를 막습니다
+  if (location.protocol === "file:") {
+    $("stat").textContent = "파일을 직접 열면 노래가 안 나옵니다 — 도구 열기.bat 을 쓰세요";
+    return false;
+  }
   $("stat").textContent = "음원 불러오는 중…";
   if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
   try {
@@ -383,6 +396,11 @@ $("copy").addEventListener("click", async () => {
   }
   setTimeout(() => { $("copied").textContent = ""; }, 2500);
 });
+
+// 파일을 직접 열었으면 경고를 띄웁니다
+if (location.protocol === "file:") {
+  $("fileWarn").style.display = "block";
+}
 
 render();
 </script>

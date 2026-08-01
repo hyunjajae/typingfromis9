@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>가사 도구 — fromis_9 TYPING</title>
+<link rel="stylesheet" as="style" crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" />
+<style>
+  :root{
+    --bg:#fbfbf9; --surface:#fff; --text:#171a18; --soft:#555b56; --muted:#9aa09a;
+    --line:#e8e8e3; --strong:#d6d6cf; --accent:#0f9d76; --accent-soft:#e7f5f0; --wrong:#db4a3d;
+    --font:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.65}
+  .wrap{max-width:760px;margin:0 auto;padding:56px 24px 90px}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0 0 14px}
+  h1{font-size:34px;font-weight:800;letter-spacing:-.03em;margin:0 0 12px}
+  .lead{color:var(--soft);margin:0 0 34px;font-size:15.5px}
+
+  .warn{display:none;background:#fdeceb;border:1px solid var(--wrong);color:#8c2b22;
+        border-radius:12px;padding:18px 20px;margin:0 0 28px;font-size:14.5px}
+  .warn b{color:var(--wrong)}
+  .warn code{background:#fff;padding:2px 6px;border-radius:5px;font-size:13px}
+
+  .card{display:block;text-decoration:none;color:inherit;background:var(--surface);
+        border:1px solid var(--line);border-radius:16px;padding:26px 26px 24px;margin-bottom:14px;
+        transition:.25s cubic-bezier(.22,.61,.36,1)}
+  .card:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 16px 36px -26px rgba(0,0,0,.4)}
+  .card__no{font-size:11px;letter-spacing:.14em;color:var(--muted);font-weight:700}
+  .card__title{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:6px 0 8px}
+  .card__desc{font-size:14.5px;color:var(--soft);margin:0}
+  .card__when{display:inline-block;margin-top:14px;font-size:12.5px;font-weight:700;
+              color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:5px 12px}
+
+  .back{display:inline-block;margin-top:28px;color:var(--soft);font-size:14px;text-decoration:none;font-weight:600}
+  .back:hover{color:var(--accent)}
+  .note{margin-top:34px;padding-top:22px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+  .note code{background:var(--accent-soft);color:var(--accent);padding:2px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Tools</p>
+  <h1>가사 도구</h1>
+  <p class="lead">가사에 시간을 붙이고 다듬는 도구 두 개입니다. 순서대로 쓰시면 됩니다.</p>
+
+  <!-- 파일을 직접 열었을 때만 뜨는 경고 -->
+  <div class="warn" id="fileWarn">
+    <b>⚠ 이렇게 열면 노래가 안 나옵니다.</b><br />
+    지금 파일을 직접 연 상태(<code>file://</code>)라 브라우저가 보안 때문에 mp3를 못 읽습니다.<br /><br />
+    프로젝트 폴더의 <code>도구 열기.bat</code> 을 더블클릭해서 여세요.
+  </div>
+
+  <a class="card" href="lyrics-timer.html">
+    <span class="card__no">STEP 1</span>
+    <div class="card__title">가사 타임코드 찍기</div>
+    <p class="card__desc">
+      노래를 들으면서 가사 한 줄이 시작될 때마다 스페이스바를 눌러
+      시간을 찍습니다. 가사를 처음 넣을 때 씁니다.
+    </p>
+    <span class="card__when">가사를 처음 넣을 때</span>
+  </a>
+
+  <a class="card" href="lyrics-tuner.html">
+    <span class="card__no">STEP 2</span>
+    <div class="card__title">가사 타이밍 미세조정</div>
+    <p class="card__desc">
+      한 줄씩 반복해서 들으며 0.05초 단위로 다듬습니다.
+      찍어둔 시간이 미세하게 안 맞을 때 씁니다.
+    </p>
+    <span class="card__when">타이밍이 살짝 어긋날 때</span>
+  </a>
+
+  <a class="back" href="index.html">← 게임으로 돌아가기</a>
+
+  <p class="note">
+    두 도구 모두 <code>data/songs.js</code> 를 읽어서 곡 목록을 만듭니다.
+    지금 이 폴더의 파일을 그대로 읽으므로, 고친 내용이 바로 반영됩니다.
+  </p>
+</div>
+
+<script>
+  // 파일을 직접 열었으면(file://) 경고를 띄웁니다.
+  if (location.protocol === "file:") {
+    document.getElementById("fileWarn").style.display = "block";
+  }
+</script>
+</body>
+</html>
