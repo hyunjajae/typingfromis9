@@ -375,6 +375,13 @@ const Audio9 = (() => {
   let failCb = null;      // 로드 실패시 호출할 함수
   let endCb = null;       // 구간 재생이 끝났을 때 호출할 함수
 
+  /* 재생 요청 번호.
+     파일을 새로 걸면 "준비될 때까지" 기다렸다가 재생하는데,
+     그 사이 다른 요청이 들어오면 먼저 기다리던 요청이 뒤늦게 깨어나
+     엉뚱한 위치로 옮기거나 새 재생을 멈춰버립니다.
+     그래서 요청마다 번호를 매기고, 번호가 바뀌었으면 무시합니다. */
+  let seq = 0;
+
   el.addEventListener("error", () => { if (failCb) failCb(); });
 
   function clearSeg() {
@@ -386,14 +393,18 @@ const Audio9 = (() => {
 
   /** 재생 완전 정지 */
   function stop() {
+    seq++;                 // 기다리던 이전 요청을 무효화
     clearSeg();
     try { el.pause(); } catch (e) {}
   }
 
-  /** 메타데이터(길이 정보)가 준비되면 콜백 실행 */
+  /** 메타데이터(길이 정보)가 준비되면 콜백 실행.
+   *  기다리는 사이 새 요청이 들어왔으면 이 요청은 버립니다. */
   function whenReady(fn) {
-    if (el.readyState >= 1) fn();
-    else el.addEventListener("loadedmetadata", fn, { once: true });
+    const mine = seq;
+    const run = () => { if (mine === seq) fn(); };
+    if (el.readyState >= 1) run();
+    else el.addEventListener("loadedmetadata", run, { once: true });
   }
 
   /** 곡 파일을 걸어둡니다. onFail = 파일이 없을 때 부를 함수 */
@@ -408,6 +419,7 @@ const Audio9 = (() => {
   /** 처음부터(또는 from 초부터) 그냥 재생 */
   function play(from) {
     clearSeg();
+    seq++;
     whenReady(() => {
       try { if (typeof from === "number") el.currentTime = from; } catch (e) {}
       el.play().catch(() => { /* 자동재생 차단 등 — 조용히 무시 */ });
@@ -417,6 +429,7 @@ const Audio9 = (() => {
   /** start 초부터 duration 초만 재생하고 멈춤 */
   function playSegment(start, duration, onEnd) {
     clearSeg();
+    seq++;
     endCb = onEnd || null;
     const stopAt = start + duration;
 
@@ -445,6 +458,7 @@ const Audio9 = (() => {
 
   /** 일시정지 (구간 감시는 유지하지 않고 그냥 멈춥니다) */
   function pause() {
+    seq++;                 // 기다리던 재생 요청도 취소
     clearSeg();
     try { el.pause(); } catch (e) {}
   }
@@ -1198,17 +1212,31 @@ const Quiz = (() => {
     status.textContent = "인트로 재생 중…";
     wave.classList.add("is-playing");
 
-    Audio9.load(s.audio, () => {
-      // mp3 파일이 없을 때 — 게임은 그대로 진행합니다
+    const done = () => {
+      wave.classList.remove("is-playing");
+      if (running) status.textContent = "제목을 입력하고 Enter";
+    };
+
+    const noAudio = () => {
       wave.classList.remove("is-playing");
       $("#quizNoAudioBadge").hidden = false;
       status.textContent = "오디오 없이 진행 — 제목을 입력하세요";
+    };
+
+    /* 퀴즈는 도입부 몇 초만 들려주면 되는데, 전체 mp3 를 걸면
+       브라우저가 곡 하나를 통째로(4MB) 받아버립니다.
+       그래서 audio/intro/ 에 미리 잘라둔 짧은 파일을 씁니다. (곡당 약 100KB)
+       잘라둔 파일이 없는 곡은 예전처럼 전체 mp3 에서 구간 재생합니다. */
+    const clip = "audio/intro/" + s.id + ".mp3";
+
+    Audio9.load(clip, () => {
+      // 잘라둔 인트로가 없으면 전체 mp3 로 대체
+      Audio9.load(s.audio, noAudio);
+      Audio9.playSegment(s.intro.start, s.intro.duration, done);
     });
 
-    Audio9.playSegment(s.intro.start, s.intro.duration, () => {
-      wave.classList.remove("is-playing");
-      if (running) status.textContent = "제목을 입력하고 Enter";
-    });
+    // 잘라둔 파일은 이미 도입부부터 시작하므로 0초부터 재생합니다
+    Audio9.playSegment(0, s.intro.duration, done);
   }
 
   /* ---- 정답 확인 ---- */
