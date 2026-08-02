@@ -261,6 +261,14 @@ main {
   gap: 20px;
 }
 
+/* 아직 공개 안 한 모드가 있어 카드가 하나뿐일 때
+   (data/features.js 참고) — 가운데에 적당한 크기로 둡니다 */
+.mode-grid--single {
+  grid-template-columns: 1fr;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
 /* ---- 모드 카드 ----
    위쪽에는 그 모드의 실제 화면을 축소해 보여주고(mode-card__demo),
    아래쪽에 설명이 들어갑니다. */

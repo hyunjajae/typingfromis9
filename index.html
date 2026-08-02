@@ -395,7 +395,7 @@
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       var bust = dev ? "?t=" + Date.now() : "";
 
-      ["data/ranking-config.js", "data/result-art.js", "data/songs.js", "game.js"].forEach(function (src) {
+      ["data/features.js", "data/ranking-config.js", "data/result-art.js", "data/songs.js", "game.js"].forEach(function (src) {
         var el = document.createElement("script");
         el.src = src + bust;
         el.async = false;          // 적어둔 순서대로 실행되게 합니다

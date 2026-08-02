@@ -212,6 +212,29 @@ function isPartialMatch(typedCh, targetCh) {
 /* ======================= 2. 화면 전환 / 테마 ======================= */
 
 /** id 에 해당하는 화면만 보여줍니다 */
+/** 기능이 공개된 상태인지 확인합니다. (data/features.js)
+ *  설정 파일이 없거나 값이 없으면 "공개"로 봅니다. */
+function feature(name) {
+  if (typeof FEATURES === "undefined") return true;
+  return FEATURES[name] !== false;
+}
+
+/** 아직 공개하지 않은 기능을 화면에서 감춥니다. */
+function applyFeatureFlags() {
+  // ── 인트로 퀴즈 ──
+  if (!feature("quiz")) {
+    $("#btnModeQuiz").hidden = true;
+    $(".mode-grid").classList.add("mode-grid--single");
+    $("#tabQuiz").hidden = true;      // 랭킹 화면의 퀴즈 탭
+  }
+
+  // ── 노래 맞춰주기 ──
+  if (!feature("autoWait")) {
+    $("#btnAutoWait").hidden = true;
+    $("#waitBadge").hidden = true;
+  }
+}
+
 /** 각 화면에서 "뒤로" 를 누르면 갈 곳 */
 const BACK_TO = {
   "screen-select": "screen-home",
@@ -542,9 +565,11 @@ const Lyrics = (() => {
 
   // "노래 맞춰주기" 켜짐 여부 (브라우저에 저장돼서 다음에도 유지됩니다)
   const AUTOWAIT_KEY = "f9typing_autowait";
-  const autoWaitOn = () => localStorage.getItem(AUTOWAIT_KEY) !== "off";
+  // 아직 공개하지 않은 기능이면 켜져 있어도 동작하지 않습니다
+  const autoWaitOn = () => feature("autoWait") && localStorage.getItem(AUTOWAIT_KEY) !== "off";
 
   function initAutoWaitToggle() {
+    if (!feature("autoWait")) return;   // 아직 공개 전이면 버튼을 켜지 않습니다
     const btn = $("#btnAutoWait");
     const paint = () => btn.classList.toggle("is-on", autoWaitOn());
     paint();
@@ -1676,7 +1701,8 @@ const Ranking = (() => {
   const NICK_KEY = "f9typing_nick";
   const on = () => typeof RANKING !== "undefined" && RANKING.enabled && RANKING.url && RANKING.anonKey;
 
-  let lastMode = "quiz";     // 랭킹 화면에서 보고 있는 모드
+  // 랭킹 화면에서 보고 있는 모드 (퀴즈가 아직 공개 전이면 가사 타이핑부터)
+  let lastMode = feature("quiz") ? "quiz" : "lyrics";
   let pending = null;        // 등록 대기 중인 기록
   let nickAfter = null;      // 닉네임 입력이 끝난 뒤 할 일
 
@@ -1907,6 +1933,9 @@ const Ranking = (() => {
       sel.appendChild(o);
     });
 
+    // 퀴즈가 공개 전이면 가사 타이핑 순위만 보여줍니다
+    if (!feature("quiz")) setMode("lyrics");
+
     $("#btnOpenRanking").addEventListener("click", open);
     $("#btnHomeFromRanking").addEventListener("click", goHome);
     $("#tabQuiz").addEventListener("click", () => setMode("quiz"));
@@ -2052,6 +2081,7 @@ function pickResultArt(sel) {
 }
 
 function init() {
+  applyFeatureFlags();   // 아직 공개 안 한 기능을 먼저 감춥니다
   initTheme();
   initKeyboardWatch();
   initVolume();
