@@ -1854,6 +1854,32 @@ const Chant = (() => {
       box.hidden = true;
     }
 
+    Share.set({
+      modeLabel: "응원법",
+      title: song.title,
+      sub: song.album || "",
+      color: song.color || "#0f9d76",
+      cover: song.cover || "",
+      big: rate + "%",
+      bigLabel: "응원 성공률",
+      stats: [
+        { label: "성공", value: String(stat.ok) },
+        { label: "놓침", value: String(stat.miss) },
+        { label: "전체 구간", value: String(total) }
+      ],
+      shareText: "fromis_9 «" + song.title + "» 응원법 " + rate + "% (" + stat.ok + "/" + total + ")\n" +
+                 "https://typingfromis9.kr\n#fromis_9 #프로미스나인 #플로버"
+    });
+
+    Ranking.offer({
+      mode: "chant",
+      songId: song.id,
+      rate: rate,
+      hits: stat.ok,
+      total: total,
+      misses: stat.miss
+    });
+
     pickResultArt("#artChant");
     showScreen("screen-chant-result");
   }
@@ -2146,7 +2172,15 @@ const Ranking = (() => {
     const n = getNick() || "—";
     $("#nickLyrics").textContent = n;
     $("#nickQuiz").textContent = n;
+    $("#nickChant").textContent = n;
   }
+
+  /** 모드별로 쓰는 화면 요소 모음 */
+  const UI = {
+    lyrics: { box: "#submitLyrics", msg: "#msgLyrics", btn: "#btnSubmitLyrics" },
+    quiz:   { box: "#submitQuiz",   msg: "#msgQuiz",   btn: "#btnSubmitQuiz" },
+    chant:  { box: "#submitChant",  msg: "#msgChant",  btn: "#btnSubmitChant" }
+  };
 
   /* ---- 말도 안 되는 기록 거르기 ----
      클라이언트에서 한 번, Supabase 쪽 CHECK 규칙에서 또 한 번 걸러집니다. */
@@ -2157,6 +2191,11 @@ const Ranking = (() => {
       if (!(rec.cpm >= 1 && rec.cpm <= 1500)) return "타수가 정상 범위를 벗어났어요. (1~1500)";
       if (!(rec.accuracy >= 0 && rec.accuracy <= 100)) return "정확도 값이 이상해요.";
       if (rec.accuracy < 50) return "정확도 50% 이상이어야 등록할 수 있어요.";
+    } else if (rec.mode === "chant") {
+      if (!(rec.total >= 3)) return "응원 구간이 3개 이상인 곡만 등록할 수 있어요.";
+      if (!(rec.hits >= 0 && rec.hits <= rec.total)) return "성공 개수가 이상해요.";
+      if (!(rec.rate >= 0 && rec.rate <= 100)) return "성공률 값이 이상해요.";
+      if (rec.hits === 0) return "한 구간도 못 맞히면 등록할 수 없어요.";
     } else {
       if (rec.passed > 0) return "패스한 판은 랭킹에 올릴 수 없어요. 전부 맞혀보세요!";
       if (!(rec.seconds >= rec.count * 1.5)) return "너무 빠른 기록이라 등록할 수 없어요.";
@@ -2182,15 +2221,23 @@ const Ranking = (() => {
   });
 
   async function send(rec) {
-    const body = {
-      nickname: getNick(),
-      mode: rec.mode,
-      song_id: rec.mode === "lyrics" ? rec.songId : null,
-      cpm: rec.mode === "lyrics" ? Math.round(rec.cpm) : null,
-      accuracy: rec.mode === "lyrics" ? Math.round(rec.accuracy) : null,
-      seconds: rec.mode === "quiz" ? Number(rec.seconds.toFixed(2)) : null,
-      misses: rec.mode === "quiz" ? rec.misses : null
-    };
+    // 모드마다 쓰는 칸만 담습니다. (없는 칸을 보내면 통째로 거부당합니다)
+    const body = { nickname: getNick(), mode: rec.mode };
+
+    if (rec.mode === "lyrics") {
+      body.song_id = rec.songId;
+      body.cpm = Math.round(rec.cpm);
+      body.accuracy = Math.round(rec.accuracy);
+    } else if (rec.mode === "quiz") {
+      body.seconds = Number(rec.seconds.toFixed(2));
+      body.misses = rec.misses;
+    } else if (rec.mode === "chant") {
+      body.song_id = rec.songId;
+      body.rate = Math.round(rec.rate);
+      body.hits = rec.hits;
+      body.total = rec.total;
+      body.misses = rec.misses;
+    }
     const res = await fetch(apiBase() + "/scores", {
       method: "POST",
       headers: Object.assign(headers(), { "Prefer": "return=minimal" }),
@@ -2200,10 +2247,18 @@ const Ranking = (() => {
   }
 
   async function fetchTop(mode, songId) {
-    let q = apiBase() + "/scores?select=nickname,cpm,accuracy,seconds,misses,created_at" +
+    // 응원법 전용 칸(rate/hits/total)은 응원법 조회에서만 요청합니다.
+    // 안 그러면 그 칸을 아직 안 만든 상태에서 가사·퀴즈 랭킹까지 막힙니다.
+    const cols = mode === "chant"
+      ? "nickname,rate,hits,total,misses,created_at"
+      : "nickname,cpm,accuracy,seconds,misses,created_at";
+
+    let q = apiBase() + "/scores?select=" + cols +
             "&mode=eq." + mode + "&limit=" + (RANKING.topN || 20);
-    q += mode === "quiz" ? "&order=seconds.asc" : "&order=cpm.desc";
-    if (mode === "lyrics" && songId) q += "&song_id=eq." + encodeURIComponent(songId);
+    q += mode === "quiz" ? "&order=seconds.asc"
+       : mode === "chant" ? "&order=rate.desc,hits.desc"
+       : "&order=cpm.desc";
+    if (mode !== "quiz" && songId) q += "&song_id=eq." + encodeURIComponent(songId);
     const res = await fetch(q, { headers: headers() });
     if (!res.ok) throw new Error("불러오기 실패 (" + res.status + ")");
     return res.json();
@@ -2212,9 +2267,8 @@ const Ranking = (() => {
   /* ---- 결과 화면의 "랭킹에 등록" ---- */
   function offer(rec) {
     pending = rec;
-    const box = rec.mode === "lyrics" ? $("#submitLyrics") : $("#submitQuiz");
-    const msg = rec.mode === "lyrics" ? $("#msgLyrics") : $("#msgQuiz");
-    const btn = rec.mode === "lyrics" ? $("#btnSubmitLyrics") : $("#btnSubmitQuiz");
+    const ui = UI[rec.mode];
+    const box = $(ui.box), msg = $(ui.msg), btn = $(ui.btn);
     if (!on()) { box.hidden = true; return; }
 
     box.hidden = false;
@@ -2236,9 +2290,8 @@ const Ranking = (() => {
 
   async function submit() {
     if (!pending || !on()) return;
-    const mode = pending.mode;
-    const msg = mode === "lyrics" ? $("#msgLyrics") : $("#msgQuiz");
-    const btn = mode === "lyrics" ? $("#btnSubmitLyrics") : $("#btnSubmitQuiz");
+    const ui = UI[pending.mode];
+    const msg = $(ui.msg), btn = $(ui.btn);
 
     const why = checkPlausible(pending);
     if (why) { msg.textContent = why; msg.className = "submit-box__msg is-ng"; return; }
@@ -2255,7 +2308,11 @@ const Ranking = (() => {
     } catch (e) {
       btn.disabled = false;
       btn.textContent = "🏆 랭킹에 등록";
-      msg.textContent = e.message + " — 인터넷 연결이나 Supabase 설정을 확인해 주세요.";
+      // 응원법은 Supabase 에 칸을 추가해야 등록됩니다 (README 3-b 참고)
+      const hint = (pending.mode === "chant" && /40[0-9]/.test(e.message))
+        ? " — 응원법 랭킹은 Supabase 에 SQL 한 번을 더 실행해야 합니다. README 를 봐주세요."
+        : " — 인터넷 연결이나 Supabase 설정을 확인해 주세요.";
+      msg.textContent = e.message + hint;
       msg.className = "submit-box__msg is-ng";
     }
   }
@@ -2267,23 +2324,52 @@ const Ranking = (() => {
     load();
   }
 
+  /** 방금 한 모드의 순위를 바로 보여줍니다 (결과 화면의 "랭킹 보기") */
+  function openAt(mode, songId) {
+    if (!on()) return;
+    if (mode !== "quiz" && !feature(mode === "chant" ? "chant" : "lyrics")) mode = "quiz";
+    showScreen("screen-ranking");
+    setMode(mode);
+    if (songId) { $("#rankSong").value = songId; load(); }
+  }
+
   function setMode(mode) {
     lastMode = mode;
     $("#tabQuiz").classList.toggle("is-on", mode === "quiz");
     $("#tabLyrics").classList.toggle("is-on", mode === "lyrics");
-    $("#rankSong").hidden = mode !== "lyrics";
+    $("#tabChant").classList.toggle("is-on", mode === "chant");
+    $("#rankSong").hidden = mode === "quiz";
+    if (mode !== "quiz") fillSongs(mode);
     load();
+  }
+
+  /** 모드에 맞는 곡만 선택 목록에 채웁니다 */
+  function fillSongs(mode) {
+    const sel = $("#rankSong");
+    const field = mode === "chant" ? "chants" : "lyrics";
+    const list = orderedSongs().filter((s) => s[field] && s[field].length);
+    sel.replaceChildren();
+    list.forEach((s) => {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.title;
+      sel.appendChild(o);
+    });
   }
 
   async function load() {
     const list = $("#rankList");
     list.innerHTML = '<p class="rank-empty">불러오는 중…</p>';
     try {
-      const songId = lastMode === "lyrics" ? $("#rankSong").value : null;
+      const songId = lastMode === "quiz" ? null : $("#rankSong").value;
       const rows = await fetchTop(lastMode, songId);
       paint(rows);
     } catch (e) {
-      list.innerHTML = '<p class="rank-empty">' + e.message + '</p>';
+      // 응원법 랭킹은 Supabase 에 칸을 추가해야 동작합니다
+      const extra = (lastMode === "chant" && /40[0-9]/.test(e.message))
+        ? '<br /><span style="font-size:13px">응원법 랭킹을 쓰려면 Supabase 에서 SQL 한 번을 더 실행해야 합니다.<br />README 의 "응원법 랭킹 켜기" 를 봐주세요.</span>'
+        : "";
+      list.innerHTML = '<p class="rank-empty">' + e.message + extra + '</p>';
     }
   }
 
@@ -2310,13 +2396,15 @@ const Ranking = (() => {
 
       const sub = document.createElement("div");
       sub.className = "rank-row__sub";
-      sub.textContent = lastMode === "quiz"
-        ? "오답 " + (r.misses ?? 0) + "회"
-        : "정확도 " + (r.accuracy ?? 0) + "%";
+      sub.textContent = lastMode === "quiz"  ? "오답 " + (r.misses ?? 0) + "회"
+                      : lastMode === "chant" ? (r.hits ?? 0) + " / " + (r.total ?? 0) + "구간"
+                      : "정확도 " + (r.accuracy ?? 0) + "%";
 
       const score = document.createElement("div");
       score.className = "rank-row__score";
-      score.textContent = lastMode === "quiz" ? fmtClock(r.seconds) : r.cpm + " CPM";
+      score.textContent = lastMode === "quiz"  ? fmtClock(r.seconds)
+                        : lastMode === "chant" ? (r.rate ?? 0) + "%"
+                        : r.cpm + " CPM";
 
       row.append(no, nick, sub, score);
       frag.appendChild(row);
@@ -2331,29 +2419,35 @@ const Ranking = (() => {
     $("#homeRanking").hidden = false;
     paintNick();
 
-    // 가사 모드 곡 선택 채우기
-    const sel = $("#rankSong");
-    orderedSongs().filter((s) => s.lyrics && s.lyrics.length).forEach((s) => {
-      const o = document.createElement("option");
-      o.value = s.id;
-      o.textContent = s.title;
-      sel.appendChild(o);
-    });
+    // 결과 화면마다 "랭킹 보기" 버튼을 켭니다
+    [["#btnRankFromLyrics", "lyrics"], ["#btnRankFromQuiz", "quiz"], ["#btnRankFromChant", "chant"]]
+      .forEach(([sel, mode]) => {
+        const b = $(sel);
+        b.hidden = false;
+        b.addEventListener("click", () => openAt(mode));
+      });
 
-    // 퀴즈가 공개 전이면 가사 타이핑 순위만 보여줍니다
-    if (!feature("quiz")) setMode("lyrics");
+    // 응원법이 등록된 곡이 없으면 탭을 숨깁니다
+    const hasChants = SONGS.some((s) => s.chants && s.chants.length > 0);
+    if (!feature("chant") || !hasChants) $("#tabChant").hidden = true;
+
+    // 퀴즈가 공개 전이면 가사 타이핑 순위부터 보여줍니다
+    setMode(feature("quiz") ? "quiz" : "lyrics");
 
     $("#btnOpenRanking").addEventListener("click", open);
     $("#btnHomeFromRanking").addEventListener("click", goHome);
     $("#tabQuiz").addEventListener("click", () => setMode("quiz"));
     $("#tabLyrics").addEventListener("click", () => setMode("lyrics"));
+    $("#tabChant").addEventListener("click", () => setMode("chant"));
     $("#rankSong").addEventListener("change", load);
     $("#btnRankRefresh").addEventListener("click", load);
 
     $("#btnSubmitLyrics").addEventListener("click", submit);
     $("#btnSubmitQuiz").addEventListener("click", submit);
+    $("#btnSubmitChant").addEventListener("click", submit);
     $("#btnNickLyrics").addEventListener("click", () => askNick());
     $("#btnNickQuiz").addEventListener("click", () => askNick());
+    $("#btnNickChant").addEventListener("click", () => askNick());
 
     $("#btnNickSave").addEventListener("click", saveNick);
     $("#btnNickCancel").addEventListener("click", () => { $("#nickModal").hidden = true; nickAfter = null; });
@@ -2363,7 +2457,7 @@ const Ranking = (() => {
     });
   }
 
-  return { init, offer, open, isOn: on };
+  return { init, offer, open, openAt, isOn: on };
 })();
 
 /* ======================= 6. 시작 화면 · 초기화 ======================= */

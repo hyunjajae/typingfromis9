@@ -504,6 +504,35 @@ const RANKING = {
 
 ---
 
+### 응원법 랭킹 켜기 — SQL 한 번 더
+
+응원법은 기록하는 값이 달라서(성공률·성공 개수·전체 구간) **표에 칸 세 개를 더 만들어야** 합니다.
+안 하면 응원법 탭에서 `400` 오류가 뜹니다. (가사·퀴즈 랭킹은 그대로 잘 됩니다)
+
+Supabase → **SQL Editor** → **New query** 에 아래를 붙여넣고 **Run**:
+
+```sql
+-- 1) chant 모드를 허용
+alter table scores drop constraint if exists "mode_값";
+alter table scores add  constraint "mode_값" check (mode in ('lyrics','quiz','chant'));
+
+-- 2) 응원법용 칸 세 개
+alter table scores add column if not exists rate  int;   -- 성공률(%)
+alter table scores add column if not exists hits  int;   -- 성공한 구간 수
+alter table scores add column if not exists total int;   -- 전체 구간 수
+
+alter table scores add constraint "rate_범위"  check (rate  is null or rate  between 0 and 100);
+alter table scores add constraint "hits_범위"  check (hits  is null or hits  between 0 and 999);
+alter table scores add constraint "total_범위" check (total is null or total between 1 and 999);
+
+-- 3) 순위 조회를 빠르게
+create index if not exists scores_chant_idx on scores (mode, song_id, rate desc);
+```
+
+> 기존 칸이나 규칙은 건드리지 않고 **더하기만** 합니다. 이미 쌓인 기록은 그대로 남습니다.
+
+응원법 순위는 **곡별로 성공률이 높은 순**입니다. 같으면 성공 구간이 많은 쪽이 위로 옵니다.
+
 ### ⚠️ 무료 플랜은 7일 쉬면 잠듭니다 — 자동 깨우기
 
 Supabase 무료 플랜은 **7일 동안 아무도 접속하지 않으면 프로젝트를 일시정지**시킵니다.
