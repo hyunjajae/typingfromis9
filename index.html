@@ -70,6 +70,26 @@
 
       <!-- 카드 위쪽에는 각 모드의 실제 화면을 축소해서 미리 보여줍니다 -->
       <div class="mode-grid">
+        <button class="mode-card mode-card--featured" id="btnModeChant" type="button">
+          <span class="mode-card__demo demo--chant">
+            <span class="demo-chant">
+              <span class="demo-chant__bar"><i></i></span>
+              <span class="demo-line">
+                <span class="demo-ch is-ok">프</span><span class="demo-ch is-ok">로</span><span class="demo-ch is-ok">미</span><span class="demo-ch is-cur">스</span><span class="demo-ch">나</span><span class="demo-ch">인</span>
+              </span>
+            </span>
+            <span class="demo-caption">성공 24 · 놓침 3 / 32</span>
+          </span>
+          <span class="mode-card__body">
+            <span class="mode-card__no">
+              <span class="new-badge" id="chantNewBadge">NEW</span>01
+            </span>
+            <span class="mode-card__title">응원법</span>
+            <span class="mode-card__desc">노래는 멈추지 않습니다. 응원 구간이 뜨면<br />그 안에 쳐야 성공하는 순발력 도전.</span>
+            <span class="mode-card__go">시작하기 →</span>
+          </span>
+        </button>
+
         <button class="mode-card" id="btnModeLyrics" type="button">
           <!-- Vitamin ME 가사 한 구절 (배경은 같은 앨범 커버를 흐리게) -->
           <span class="mode-card__demo demo--vitamin">
@@ -79,7 +99,7 @@
             <span class="demo-caption">Vitamin ME · 정확도 96% · 412 CPM</span>
           </span>
           <span class="mode-card__body">
-            <span class="mode-card__no">01</span>
+            <span class="mode-card__no">02</span>
             <span class="mode-card__title">가사 타이핑</span>
             <span class="mode-card__desc">노래를 들으며 흘러나오는 가사를 실시간으로<br />따라칩니다. 정확도와 타수를 재요.</span>
             <span class="mode-card__go">시작하기 →</span>
@@ -95,30 +115,13 @@
             <span class="demo-caption">00:47.7 · 16곡 완주</span>
           </span>
           <span class="mode-card__body">
-            <span class="mode-card__no">02</span>
+            <span class="mode-card__no">03</span>
             <span class="mode-card__title">인트로 퀴즈</span>
             <span class="mode-card__desc">도입부만 듣고 곡 제목을 최대한 빨리 타이핑.<br />전체 완주 시간을 재는 스피드런.</span>
             <span class="mode-card__go">시작하기 →</span>
           </span>
         </button>
 
-        <button class="mode-card" id="btnModeChant" type="button">
-          <span class="mode-card__demo demo--chant">
-            <span class="demo-chant">
-              <span class="demo-chant__bar"><i></i></span>
-              <span class="demo-line">
-                <span class="demo-ch is-ok">프</span><span class="demo-ch is-ok">로</span><span class="demo-ch is-ok">미</span><span class="demo-ch is-cur">스</span><span class="demo-ch">나</span><span class="demo-ch">인</span>
-              </span>
-            </span>
-            <span class="demo-caption">성공 24 · 놓침 3 / 32</span>
-          </span>
-          <span class="mode-card__body">
-            <span class="mode-card__no">03</span>
-            <span class="mode-card__title">응원법</span>
-            <span class="mode-card__desc">노래는 멈추지 않습니다. 응원 구간이 뜨면<br />그 안에 쳐야 성공하는 순발력 도전.</span>
-            <span class="mode-card__go">시작하기 →</span>
-          </span>
-        </button>
       </div>
 
       <!-- 랭킹이 켜져 있을 때만 보입니다 -->
@@ -388,26 +391,38 @@
       <div class="progress"><div class="progress__bar" id="chantProgressBar"></div></div>
 
       <div class="chant-stage" id="chantStage">
-        <!-- 응원 구간이 아직 안 왔을 때 -->
-        <div class="chant-idle" id="chantIdle">
-          <p class="chant-idle__label">다음 응원까지</p>
-          <p class="chant-idle__count" id="chantCountdown">–</p>
+
+        <!-- ① 가사 : 노래를 따라갈 수 있게 계속 흐릅니다 (치는 건 아닙니다) -->
+        <div class="chant-lyrics">
+          <p class="chant-lyric chant-lyric--side" id="chantLyricPrev"></p>
+          <p class="chant-lyric chant-lyric--now" id="chantLyricNow"></p>
+          <p class="chant-lyric chant-lyric--side" id="chantLyricNext"></p>
         </div>
 
-        <!-- 응원 구간이 떴을 때 -->
-        <div class="chant-live" id="chantLive" hidden>
-          <div class="chant-timer"><div class="chant-timer__bar" id="chantTimerBar"></div></div>
-          <div class="chant-line-wrap">
+        <!-- ② 응원 : 높이를 고정해서 구간이 떠도 화면이 튀지 않습니다 -->
+        <div class="chant-slot">
+          <!-- 구간이 아직 안 왔을 때 -->
+          <div class="chant-idle" id="chantIdle">
+            <p class="chant-idle__label">다음 응원까지</p>
+            <p class="chant-idle__count" id="chantCountdown">–</p>
+          </div>
+
+          <!-- 구간이 떴을 때 -->
+          <div class="chant-live" id="chantLive" hidden>
+            <div class="chant-timer"><div class="chant-timer__bar" id="chantTimerBar"></div></div>
             <p class="lyric lyric--current chant-line" id="chantLine"></p>
           </div>
+
+          <!-- 판정이 잠깐 뜨는 자리 -->
+          <p class="chant-verdict" id="chantVerdict"></p>
+
+          <input class="type-input chant-input" id="chantInput" type="text"
+                 autocomplete="off" autocorrect="off" autocapitalize="off"
+                 spellcheck="false" aria-label="응원법 입력" />
         </div>
 
-        <!-- 판정 결과가 잠깐 뜨는 자리 -->
-        <p class="chant-verdict" id="chantVerdict"></p>
-
-        <input class="type-input chant-input" id="chantInput" type="text"
-               autocomplete="off" autocorrect="off" autocapitalize="off"
-               spellcheck="false" aria-label="응원법 입력" />
+        <!-- ③ 앞으로 올 응원 두 개 -->
+        <div class="chant-upcoming" id="chantUpcoming" hidden></div>
       </div>
 
       <p class="hint-line">노래는 멈추지 않습니다 · 구간이 뜨면 시간 안에 정확히 치세요</p>

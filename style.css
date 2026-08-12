@@ -261,13 +261,51 @@ main {
   gap: 20px;
 }
 
-/* 아직 공개 안 한 모드가 있어 카드가 하나뿐일 때
-   (data/features.js 참고) — 가운데에 적당한 크기로 둡니다 */
+/* 카드가 하나뿐일 때 — 가운데에 적당한 크기로 (data/features.js 참고) */
 .mode-grid--single {
   grid-template-columns: 1fr;
   max-width: 560px;
   margin: 0 auto;
 }
+/* 카드가 둘뿐이면 위아래로 (강조 카드가 가로 전체를 쓰기 때문) */
+.mode-grid--pair { grid-template-columns: 1fr; }
+
+/* 맨 위에 크게 놓는 강조 카드 */
+.mode-card--featured { grid-column: 1 / -1; }
+
+@media (min-width: 761px) {
+  .mode-card--featured { flex-direction: row; align-items: stretch; }
+  .mode-card--featured .mode-card__demo {
+    width: 46%;
+    flex: none;
+    height: auto;
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+  }
+  .mode-card--featured .mode-card__body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 34px 36px;
+  }
+  .mode-card--featured .mode-card__title { font-size: 31px; }
+}
+
+/* NEW 배지 */
+.new-badge {
+  display: inline-block;
+  margin-right: 9px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background-color: var(--accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  vertical-align: middle;
+  animation: wait-pulse 1.8s ease-in-out infinite;
+}
+html[data-theme="dark"] .new-badge { color: #06120d; }
 
 /* ---- 모드 카드 ----
    위쪽에는 그 모드의 실제 화면을 축소해 보여주고(mode-card__demo),
@@ -927,10 +965,56 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 26px;
   min-height: 340px;
-  padding: 30px 0;
+  padding: 26px 0;
   text-align: center;
+}
+
+/* ① 가사 — 노래를 따라가라고 보여주는 것이라 치지 않습니다 */
+.chant-lyrics {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 108px;
+  justify-content: center;
+}
+.chant-lyric { margin: 0; word-break: keep-all; transition: opacity .35s var(--ease); }
+.chant-lyric--side {
+  font-size: clamp(.95rem, 2.4vw, 1.15rem);
+  color: var(--text-soft);
+  opacity: .4;
+  min-height: 1.5em;
+}
+/* 지금 흐르는 줄 — 왼쪽부터 초록으로 채워지는 노래방 효과 */
+.chant-lyric--now {
+  font-size: clamp(1.25rem, 3.4vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  min-height: 1.5em;
+  background-image: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--sung, 0%),
+    var(--text) var(--sung, 0%),
+    var(--text) 100%
+  );
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
+
+/* ② 응원 자리 — 높이를 고정해서 구간이 떠도 화면이 안 튑니다 */
+.chant-slot {
+  position: relative;
+  width: 100%;
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 /* 구간이 오기 전 */
@@ -996,13 +1080,48 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* 입력창은 안 보이지만 한글 조합을 위해 무대 전체를 덮습니다 */
+/* 입력창은 안 보이지만 한글 조합을 위해 응원 자리를 덮습니다 */
 .chant-input {
   position: absolute;
   inset: 0;
   text-align: center;
   font-size: clamp(1.7rem, 5vw, 2.8rem);
 }
+
+/* ③ 앞으로 올 응원 */
+.chant-upcoming {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-height: 30px;
+}
+.chant-up__label {
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+.chant-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text-soft);
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+.chant-up i {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.chant-up b { font-weight: 700; }
 
 /* 놓친 구간 목록 (결과 화면) */
 .miss-list {
@@ -1052,8 +1171,12 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
 @media (prefers-reduced-motion: reduce) { .demo-chant__bar i { animation: none; } }
 
 @media (max-width: 760px) {
-  .chant-stage { min-height: 0; padding: 20px 0 10px; gap: 14px; }
+  .chant-stage { min-height: 0; padding: 16px 0 10px; gap: 18px; }
   .chant-timer { margin-bottom: 18px; }
+  .chant-lyrics { min-height: 86px; }
+  .chant-slot { min-height: 140px; }
+  .chant-upcoming { gap: 7px; }
+  .chant-up { font-size: 12.5px; padding: 5px 11px; }
 }
 
 /* ---------- 10. 퀴즈 무대 ---------- */

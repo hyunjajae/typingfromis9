@@ -300,9 +300,14 @@ function applyFeatureFlags() {
     $("#btnModeChant").hidden = true;
   }
 
-  // 보이는 모드 카드가 하나뿐이면 가운데 1단으로
+  // NEW 배지는 따로 끌 수 있게 해둡니다
+  if (!feature("chantIsNew")) $("#chantNewBadge").hidden = true;
+
+  // 보이는 카드 수에 맞춰 배치를 바꿉니다
   const shown = $$(".mode-card").filter((c) => !c.hidden).length;
-  $(".mode-grid").classList.toggle("mode-grid--single", shown === 1);
+  const grid = $(".mode-grid");
+  grid.classList.toggle("mode-grid--single", shown === 1);
+  grid.classList.toggle("mode-grid--pair", shown === 2);
 }
 
 /** 각 화면에서 "뒤로" 를 누르면 갈 곳 */
@@ -1519,8 +1524,8 @@ const Quiz = (() => {
 
 const Chant = (() => {
   // 구간이 몇 초 전에 미리 뜰지 / 응원 시각이 지난 뒤 몇 초까지 인정할지
-  const LEAD = 3.0;
-  const GRACE = 2.0;
+  const LEAD = 1.8;
+  const GRACE = 3.0;
   const GAP = 0.15;        // 다음 구간과 겹치지 않게 두는 최소 간격
 
   let song = null;
@@ -1534,6 +1539,8 @@ const Chant = (() => {
   let stat = { ok: 0, miss: 0 };
   let missed = [];
   let verdictTimer = null;
+  let words = [];          // 이 곡의 가사 (읽기용)
+  let wordIdx = -1;        // 지금 흐르고 있는 가사 줄
 
   const input = $("#chantInput");
   const elLine = $("#chantLine");
@@ -1614,6 +1621,8 @@ const Chant = (() => {
   function start(s) {
     song = s;
     list = s.chants.slice().sort((a, b) => a.time - b.time);
+    words = (s.lyrics || []).slice().sort((a, b) => a.time - b.time);
+    wordIdx = -1;
     idx = 0;
     resolved = false;
     live = false;
@@ -1629,6 +1638,9 @@ const Chant = (() => {
     $("#chantNoAudio").hidden = true;
     $("#chantVerdict").textContent = "";
     $("#chantVerdict").className = "chant-verdict";
+    $("#chantLyricPrev").textContent = "";
+    $("#chantLyricNow").textContent = "";
+    $("#chantLyricNext").textContent = words[0] ? words[0].text : "";
 
     const cover = $("#chantCover");
     cover.hidden = true;
@@ -1662,6 +1674,7 @@ const Chant = (() => {
       renderTypingCells(elLine, list[idx].text, "", false);
       input.focus();
     }
+    paintUpcoming();
   }
 
   function showVerdict(text, ok) {
@@ -1728,7 +1741,62 @@ const Chant = (() => {
     raf = requestAnimationFrame(tick);
   }
 
+  /* ---- ① 가사 흐르기 ----
+     지금 노래가 어느 줄을 부르고 있는지 보여줍니다. 치는 건 아닙니다.
+     현재 줄은 왼쪽부터 초록으로 채워집니다(노래방 효과). */
+  function paintLyrics(now) {
+    if (words.length === 0) return;
+
+    // 지금 줄 찾기 (앞뒤로 움직여도 맞게)
+    let i = wordIdx;
+    while (i + 1 < words.length && words[i + 1].time <= now) i++;
+    while (i >= 0 && words[i].time > now) i--;
+
+    if (i !== wordIdx) {
+      wordIdx = i;
+      $("#chantLyricPrev").textContent = i > 0 ? words[i - 1].text : "";
+      $("#chantLyricNow").textContent = i >= 0 ? words[i].text : "";
+      $("#chantLyricNext").textContent = words[i + 1] ? words[i + 1].text : "";
+    }
+
+    // 이 줄이 어디까지 왔는지 (다음 줄 시작까지를 100% 로 봅니다)
+    let pct = 0;
+    if (i >= 0) {
+      const from = words[i].time;
+      const to = words[i + 1] ? words[i + 1].time : from + 4;
+      pct = Math.max(0, Math.min(100, ((now - from) / Math.max(0.01, to - from)) * 100));
+    }
+    $("#chantLyricNow").style.setProperty("--sung", pct.toFixed(1) + "%");
+  }
+
+  /* ---- ③ 앞으로 올 응원 두 개 ---- */
+  function paintUpcoming() {
+    const box = $("#chantUpcoming");
+    const next = list.slice(idx + (live ? 1 : 0), idx + (live ? 3 : 2));
+    if (next.length === 0) { box.hidden = true; return; }
+
+    const frag = document.createDocumentFragment();
+    const label = document.createElement("span");
+    label.className = "chant-up__label";
+    label.textContent = "다음";
+    frag.appendChild(label);
+
+    next.forEach((c) => {
+      const el = document.createElement("span");
+      el.className = "chant-up";
+      const t = document.createElement("i");
+      t.textContent = fmtMmSs(c.time);
+      const b = document.createElement("b");
+      b.textContent = c.text;
+      el.append(t, b);
+      frag.appendChild(el);
+    });
+    box.replaceChildren(frag);
+    box.hidden = false;
+  }
+
   function paint(now) {
+    paintLyrics(now);
     if (idx >= list.length) return;
 
     $("#chantProgressBar").style.width = (idx / list.length) * 100 + "%";
