@@ -53,6 +53,8 @@
         font:inherit;font-size:12px;padding:3px 7px;cursor:pointer;font-variant-numeric:tabular-nums}
   .mini:hover{border-color:var(--accent);color:var(--accent)}
   .mini.play{border-color:var(--accent);color:var(--accent);font-weight:700}
+  .pill.is-on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .pill.is-on:hover{background:#0b7a5b;border-color:#0b7a5b;color:#fff}
 
   /* 하단 고정 조작판 */
   .dock{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--strong);
@@ -89,6 +91,14 @@
   <script>
     document.write('<scr' + 'ipt src="data/songs.js?t=' + Date.now() + '"><\/scr' + 'ipt>');
   </script>
+
+  <div class="bar" style="margin-bottom:10px">
+    <span class="hint">무엇을 다듬나요?</span>
+    <button class="btn btn--ghost btn--sm pill is-on" id="modeLyrics" type="button">가사</button>
+    <button class="btn btn--ghost btn--sm pill" id="modeChants" type="button">응원법</button>
+    <span class="spacer"></span>
+    <span class="hint" id="modeHint">가사 타이밍을 다듬습니다</span>
+  </div>
 
   <div class="bar">
     <select id="song"><option value="">— 곡 고르기 —</option></select>
@@ -165,16 +175,56 @@ let cur = -1;         // 지금 고른 줄
 let loopTimer = null; // 구간 재생 감시 (타이머)
 let watchFn = null;   // 구간 재생 감시 (오디오 이벤트)
 
+/* ---- 가사용 / 응원법용 전환 ----
+   다듬는 방식은 똑같고, 어느 목록을 손보느냐만 다릅니다. */
+let FIELD = "lyrics";                     // "lyrics" 또는 "chants"
+const LABEL = { lyrics: "가사", chants: "응원법" };
+
 /* ---- 곡 목록 ---- */
 const sel = $("song");
-if (typeof SONGS !== "undefined") {
-  SONGS.filter(s => s.audio && s.lyrics && s.lyrics.length).forEach((s, i) => {
+
+/** 지금 모드에서 다듬을 게 있는 곡만 목록에 올립니다 */
+const pool = () => (typeof SONGS === "undefined" ? []
+  : SONGS.filter(s => s.audio && s[FIELD] && s[FIELD].length));
+
+function fillSongs() {
+  sel.replaceChildren();
+  const first = document.createElement("option");
+  first.value = "";
+  first.textContent = "— 곡 고르기 —";
+  sel.appendChild(first);
+
+  const list = pool();
+  list.forEach((s, i) => {
     const o = document.createElement("option");
     o.value = String(i);
-    o.textContent = s.title + "  ·  " + (s.album || "") + "  (" + s.lyrics.length + "줄)";
+    o.textContent = s.title + "  ·  " + (s.album || "") + "  (" + s[FIELD].length + "개)";
     sel.appendChild(o);
   });
+
+  if (list.length === 0) {
+    first.textContent = "— " + LABEL[FIELD] + "이 들어있는 곡이 아직 없습니다 —";
+  }
 }
+
+function setMode(field) {
+  FIELD = field;
+  $("modeLyrics").classList.toggle("is-on", field === "lyrics");
+  $("modeChants").classList.toggle("is-on", field === "chants");
+  $("modeHint").textContent = field === "lyrics"
+    ? "가사 타이밍을 다듬습니다"
+    : "응원법 타이밍을 다듬습니다";
+  stopLoop();
+  song = null;
+  times = []; orig = []; cur = -1;
+  fillSongs();
+  sel.value = "";
+  render();
+}
+
+fillSongs();
+$("modeLyrics").addEventListener("click", () => setMode("lyrics"));
+$("modeChants").addEventListener("click", () => setMode("chants"));
 
 let blobUrl = null;   // 통째로 받아둔 mp3 주소
 
@@ -208,11 +258,10 @@ async function loadAudio(src) {
 
 sel.addEventListener("change", async () => {
   stopLoop();
-  const list = SONGS.filter(s => s.audio && s.lyrics && s.lyrics.length);
-  song = list[Number(sel.value)];
+  song = pool()[Number(sel.value)];
   if (!song) { song = null; render(); return; }
 
-  orig = song.lyrics.map(l => l.time);
+  orig = song[FIELD].map(l => l.time);
   times = orig.slice();
   cur = 0;
   render();
@@ -324,7 +373,7 @@ function render() {
 
   if (!song) {
     rows.innerHTML = '<div class="empty">먼저 곡을 골라주세요.</div>';
-    $("out").textContent = "lyrics: []";
+    $("out").textContent = FIELD + ": []";
     $("stat").textContent = "—";
     $("curText").firstChild.nodeValue = "줄을 고르세요";
     $("curTime").textContent = "—";
@@ -332,7 +381,7 @@ function render() {
   }
 
   const changed = times.filter((t, i) => Math.abs(t - orig[i]) > 0.001).length;
-  $("stat").textContent = song.lyrics.length + "줄 · 바꾼 줄 " + changed + "개";
+  $("stat").textContent = LABEL[FIELD] + " " + song[FIELD].length + "개 · 바꾼 것 " + changed + "개";
 
   const frag = document.createDocumentFragment();
   times.forEach((t, i) => {
@@ -348,7 +397,7 @@ function render() {
     tt.title = "이 줄 듣기";
     tt.addEventListener("click", () => { select(i); playCur(); });
 
-    const x = document.createElement("div"); x.className = "x"; x.textContent = song.lyrics[i].text;
+    const x = document.createElement("div"); x.className = "x"; x.textContent = song[FIELD][i].text;
 
     const a = document.createElement("div"); a.className = "a";
     const pb = document.createElement("button");
@@ -378,9 +427,9 @@ function render() {
 
   // 붙여넣기용 코드
   const lines = times.map((t, i) =>
-    '      { time: ' + t.toFixed(2) + ', text: "' + song.lyrics[i].text.replace(/"/g, '\\"') + '" }'
+    '      { time: ' + t.toFixed(2) + ', text: "' + song[FIELD][i].text.replace(/"/g, '\\"') + '" }'
   );
-  $("out").textContent = "    lyrics: [\n" + lines.join(",\n") + "\n    ]";
+  $("out").textContent = "    " + FIELD + ": [\n" + lines.join(",\n") + "\n    ]";
 }
 
 /* ---- 복사 ---- */
