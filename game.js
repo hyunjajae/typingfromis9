@@ -170,6 +170,65 @@ function looseKey(str) {
   return out;
 }
 
+/* ---- 글자 칸 그리기 (가사 타이핑 · 응원법 공용) ----
+   칸 안에는 "내가 실제로 친 글자"가 들어갑니다.
+   아직 안 친 칸은 쳐야 할 글자를 흐리게 보여주고,
+   틀린 칸은 위쪽에 원래 글자를 작게 알려줍니다. */
+function renderTypingCells(el, target, value, composing) {
+  // 조합 중이면 마지막 글자는 아직 "확정 안 된" 글자입니다
+  const settledLen = composing ? Math.max(0, value.length - 1) : value.length;
+  const frag = document.createDocumentFragment();
+  const total = Math.max(target.length, value.length);
+
+  const wantHint = (ch) => {
+    const hint = document.createElement("i");
+    hint.className = "ch__want";
+    hint.textContent = ch === " " ? "␣" : ch;
+    return hint;
+  };
+
+  for (let i = 0; i < total; i++) {
+    const wantCh = target[i];
+    const gotCh = value[i];
+
+    const span = document.createElement("span");
+    span.className = "ch";
+    if (wantCh === " ") span.classList.add("ch--space");
+
+    if (i >= target.length) {
+      span.classList.add("ch--extra");
+      span.textContent = gotCh;
+
+    } else if (i < settledLen) {
+      span.textContent = gotCh;
+      if (sameChar(gotCh, wantCh)) {
+        span.classList.add("ch--ok");
+      } else {
+        span.classList.add("ch--ng");
+        span.appendChild(wantHint(wantCh));
+      }
+
+    } else if (composing && i === settledLen && gotCh) {
+      span.textContent = gotCh;
+      if (isPartialMatch(gotCh, wantCh)) {
+        span.classList.add("ch--partial");
+      } else {
+        span.classList.add("ch--ng");
+        span.appendChild(wantHint(wantCh));
+      }
+
+    } else {
+      span.textContent = wantCh;
+      span.classList.add("ch--todo");
+      if (i === settledLen) span.classList.add("ch--cursor");
+    }
+
+    frag.appendChild(span);
+  }
+
+  el.replaceChildren(frag);
+}
+
 /** 가사 타이핑용 글자 비교 — 영문 대소문자는 구분하지 않습니다.
  *  (Shift 를 안 눌러도 맞은 것으로 처리) */
 function sameChar(a, b) {
@@ -224,7 +283,6 @@ function applyFeatureFlags() {
   // ── 인트로 퀴즈 ──
   if (!feature("quiz")) {
     $("#btnModeQuiz").hidden = true;
-    $(".mode-grid").classList.add("mode-grid--single");
     $("#tabQuiz").hidden = true;      // 랭킹 화면의 퀴즈 탭
   }
 
@@ -233,6 +291,18 @@ function applyFeatureFlags() {
     $("#btnAutoWait").hidden = true;
     $("#waitBadge").hidden = true;
   }
+
+  // ── 응원법 ──
+  // 스위치가 꺼져 있거나, 응원법이 등록된 곡이 아예 없으면 감춥니다
+  const hasChants = typeof SONGS !== "undefined" &&
+                    SONGS.some((s) => s.chants && s.chants.length > 0);
+  if (!feature("chant") || !hasChants) {
+    $("#btnModeChant").hidden = true;
+  }
+
+  // 보이는 모드 카드가 하나뿐이면 가운데 1단으로
+  const shown = $$(".mode-card").filter((c) => !c.hidden).length;
+  $(".mode-grid").classList.toggle("mode-grid--single", shown === 1);
 }
 
 /** 각 화면에서 "뒤로" 를 누르면 갈 곳 */
@@ -243,7 +313,10 @@ const BACK_TO = {
   "screen-quiz-intro": "screen-home",
   "screen-quiz": "screen-quiz-intro",
   "screen-quiz-result": "screen-quiz-intro",
-  "screen-ranking": "screen-home"
+  "screen-ranking": "screen-home",
+  "screen-chant-select": "screen-home",
+  "screen-chant": "screen-chant-select",
+  "screen-chant-result": "screen-chant-select"
 };
 
 let currentScreen = "screen-home";
@@ -254,7 +327,7 @@ function showScreen(id) {
 
   // 플레이 화면에서는 배경 스크롤을 잠급니다.
   // (모바일에서는 키보드가 올라오면 스크롤이 필요해서 잠그지 않습니다)
-  const playing = id === "screen-lyrics" || id === "screen-quiz";
+  const playing = id === "screen-lyrics" || id === "screen-quiz" || id === "screen-chant";
   const narrow = window.matchMedia("(max-width: 760px)").matches;
   document.body.classList.toggle("is-playing", playing && !narrow);
   $("#hud").hidden = !playing;
@@ -273,7 +346,8 @@ function goBack() {
   // 게임 중이었다면 정리부터
   if (currentScreen === "screen-lyrics") Lyrics.quit();
   if (currentScreen === "screen-quiz") Quiz.quit();
-  if (currentScreen === "screen-lyrics-result") setStageBg("");
+  if (currentScreen === "screen-chant") Chant.quit();
+  if (currentScreen === "screen-lyrics-result" || currentScreen === "screen-chant-result") setStageBg("");
 
   if (to === "screen-home") { goHome(); return; }
   if (to === "screen-quiz-intro") { Quiz.showIntro(); return; }
@@ -844,70 +918,9 @@ const Lyrics = (() => {
     render();
   }
 
-  /* ---- 현재 줄을 글자 칸으로 그리기 ----
-     칸 안에는 "내가 실제로 친 글자"가 들어갑니다.
-     아직 안 친 칸은 쳐야 할 글자를 흐리게 보여주고,
-     틀린 칸은 위쪽에 원래 글자를 작게 알려줍니다. */
+  /** 현재 줄을 글자 칸으로 그립니다 (그리는 방식은 응원법과 공용) */
   function render() {
-    const val = input.value;
-    // 조합 중이면 마지막 글자는 아직 "확정 안 된" 글자입니다
-    const settledLen = composing ? Math.max(0, val.length - 1) : val.length;
-    const frag = document.createDocumentFragment();
-    const total = Math.max(target.length, val.length);
-
-    for (let i = 0; i < total; i++) {
-      const wantCh = target[i];      // 쳐야 할 글자 (없을 수도 있음)
-      const gotCh = val[i];          // 내가 친 글자 (없을 수도 있음)
-
-      const span = document.createElement("span");
-      span.className = "ch";
-      // 띄어쓰기 칸은 조금 좁게 그립니다 (칸 구분은 되면서 덜 휑하도록)
-      if (wantCh === " ") span.classList.add("ch--space");
-
-      if (i >= target.length) {
-        // 목표보다 길게 친 글자
-        span.classList.add("ch--extra");
-        span.textContent = gotCh;
-
-      } else if (i < settledLen) {
-        // 조합이 끝나 확정된 글자 → 내가 친 글자를 그대로 보여줍니다
-        span.textContent = gotCh;
-        if (sameChar(gotCh, wantCh)) {
-          span.classList.add("ch--ok");
-        } else {
-          span.classList.add("ch--ng");
-          span.appendChild(makeWantHint(wantCh));   // 원래 글자 힌트
-        }
-
-      } else if (composing && i === settledLen && gotCh) {
-        // 지금 조합 중인 글자 (ㅇ → 여 처럼 실시간으로 바뀝니다)
-        span.textContent = gotCh;
-        if (isPartialMatch(gotCh, wantCh)) {
-          span.classList.add("ch--partial");
-        } else {
-          span.classList.add("ch--ng");
-          span.appendChild(makeWantHint(wantCh));
-        }
-
-      } else {
-        // 아직 안 친 칸
-        span.textContent = wantCh;
-        span.classList.add("ch--todo");
-        if (i === settledLen) span.classList.add("ch--cursor");
-      }
-
-      frag.appendChild(span);
-    }
-
-    elCur.replaceChildren(frag);
-  }
-
-  /** 틀린 칸 위에 붙일 "원래 글자" 힌트 */
-  function makeWantHint(ch) {
-    const hint = document.createElement("i");
-    hint.className = "ch__want";
-    hint.textContent = ch === " " ? "␣" : ch;   // 띄어쓰기는 기호로 표시
-    return hint;
+    renderTypingCells(elCur, target, input.value, composing);
   }
 
   /* ---- 입력 처리 : 통계 집계 + 자동 줄넘김 ---- */
@@ -1499,6 +1512,332 @@ const Quiz = (() => {
   return { showIntro, start, quit };
 })();
 
+/* ======================= 4-b. 모드 3 : 응원법 =======================
+   노래는 처음부터 끝까지 멈추지 않고 흐릅니다.
+   응원 구간이 다가오면 화면에 뜨고, 정해진 시간 안에 정확히 쳐야 성공입니다.
+   (가사 타이핑처럼 기다려주지 않습니다 — 응원은 순간을 놓치면 끝이니까요) */
+
+const Chant = (() => {
+  // 구간이 몇 초 전에 미리 뜰지 / 응원 시각이 지난 뒤 몇 초까지 인정할지
+  const LEAD = 3.0;
+  const GRACE = 2.0;
+  const GAP = 0.15;        // 다음 구간과 겹치지 않게 두는 최소 간격
+
+  let song = null;
+  let list = [];           // 이 곡의 응원 구간들
+  let idx = 0;             // 지금 노리고 있는 구간
+  let resolved = false;    // 지금 구간이 이미 판정됐는지
+  let live = false;        // 지금 구간이 화면에 떠 있는지
+  let running = false;
+  let raf = null;
+  let composing = false;
+  let stat = { ok: 0, miss: 0 };
+  let missed = [];
+  let verdictTimer = null;
+
+  const input = $("#chantInput");
+  const elLine = $("#chantLine");
+
+  /* ---- 구간의 시작·마감 시각 ----
+     앞뒤 구간과 겹치지 않도록 자동으로 좁힙니다.
+     (DM 처럼 2초 간격으로 붙어 있는 구간이 있어서 꼭 필요합니다) */
+  function deadlineOf(i) {
+    const own = list[i].time + GRACE;
+    const next = list[i + 1] ? list[i + 1].time - GAP : Infinity;
+    return Math.min(own, next);
+  }
+  function showAtOf(i) {
+    const own = list[i].time - LEAD;
+    const prev = i > 0 ? deadlineOf(i - 1) : 0;
+    return Math.max(own, prev, 0);
+  }
+
+  /* ---- 곡 목록 ---- */
+  function renderSongList() {
+    const grid = $("#chantGrid");
+    const playable = orderedSongs().filter((s) => s.chants && s.chants.length > 0);
+
+    if (playable.length === 0) {
+      grid.innerHTML =
+        '<div class="empty-note">응원법이 등록된 곡이 없습니다.<br />' +
+        "<code>data/songs.js</code> 의 <code>chants</code> 에 넣어주세요.</div>";
+      return;
+    }
+
+    grid.innerHTML = "";
+    playable.forEach((s) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "song-card";
+      btn.innerHTML =
+        '<div class="song-card__cover">' +
+          '<div class="song-card__fallback"></div>' +
+          '<span class="song-card__play">▶</span>' +
+        "</div>" +
+        '<div class="song-card__title"></div>' +
+        '<div class="song-card__album"></div>' +
+        '<div class="song-card__meta"></div>';
+
+      const coverBox = btn.querySelector(".song-card__cover");
+      const fallback = btn.querySelector(".song-card__fallback");
+      fallback.textContent = s.title.slice(0, 2).toUpperCase();
+      if (s.color) coverBox.style.backgroundColor = s.color;
+      if (s.cover) {
+        const img = makeCoverImg(s.cover);
+        img.src = thumbOf(s.cover);
+        coverBox.insertBefore(img, fallback.nextSibling);
+      }
+
+      const best = loadBest(s.id);
+      btn.querySelector(".song-card__title").textContent = s.title;
+      btn.querySelector(".song-card__album").textContent = s.album || "";
+      btn.querySelector(".song-card__meta").textContent =
+        best ? "내 최고 " + best.rate + "%" : s.chants.length + "구간";
+      btn.addEventListener("click", () => start(s));
+      grid.appendChild(btn);
+    });
+  }
+
+  /* ---- 최고 기록 ---- */
+  const BEST_KEY = "f9typing_chant_best_";
+  function loadBest(id) {
+    try {
+      const raw = localStorage.getItem(BEST_KEY + id);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function saveBest(id, rec) {
+    try { localStorage.setItem(BEST_KEY + id, JSON.stringify(rec)); } catch (e) {}
+  }
+
+  /* ---- 시작 ---- */
+  function start(s) {
+    song = s;
+    list = s.chants.slice().sort((a, b) => a.time - b.time);
+    idx = 0;
+    resolved = false;
+    live = false;
+    running = true;
+    composing = false;
+    stat = { ok: 0, miss: 0 };
+    missed = [];
+
+    $("#chantSongTitle").textContent = s.title;
+    $("#chantTotal").textContent = list.length;
+    $("#chantOk").textContent = "0";
+    $("#chantMiss").textContent = "0";
+    $("#chantNoAudio").hidden = true;
+    $("#chantVerdict").textContent = "";
+    $("#chantVerdict").className = "chant-verdict";
+
+    const cover = $("#chantCover");
+    cover.hidden = true;
+    if (s.cover) {
+      cover.onerror = () => { cover.hidden = true; };
+      cover.onload = () => { cover.hidden = false; };
+      cover.src = thumbOf(s.cover);
+    }
+    setStageBg(s.cover);
+
+    showScreen("screen-chant");
+    setLive(false);
+
+    Audio9.load(s.audio, () => { $("#chantNoAudio").hidden = false; });
+    Audio9.play(0);
+
+    input.value = "";
+    input.disabled = false;
+    input.focus();
+    tick();
+  }
+
+  /* ---- 화면 전환 (대기 ↔ 구간) ---- */
+  function setLive(on) {
+    live = on;
+    $("#chantLive").hidden = !on;
+    $("#chantIdle").hidden = on;
+    if (on) {
+      input.value = "";
+      input.maxLength = list[idx].text.length;
+      renderTypingCells(elLine, list[idx].text, "", false);
+      input.focus();
+    }
+  }
+
+  function showVerdict(text, ok) {
+    const el = $("#chantVerdict");
+    el.textContent = text;
+    el.className = "chant-verdict " + (ok ? "is-ok" : "is-miss");
+    if (verdictTimer) clearTimeout(verdictTimer);
+    verdictTimer = setTimeout(() => {
+      el.textContent = "";
+      el.className = "chant-verdict";
+    }, 1200);
+  }
+
+  /* ---- 판정 ---- */
+  function hit() {
+    if (resolved) return;
+    resolved = true;
+    stat.ok++;
+    $("#chantOk").textContent = stat.ok;
+    showVerdict("성공!", true);
+    advance();
+  }
+
+  function miss() {
+    if (resolved) return;
+    resolved = true;
+    stat.miss++;
+    $("#chantMiss").textContent = stat.miss;
+    missed.push(list[idx]);
+    showVerdict("놓쳤어요", false);
+    advance();
+  }
+
+  function advance() {
+    idx++;
+    resolved = false;
+    setLive(false);
+    input.value = "";
+    if (idx >= list.length) finish();
+  }
+
+  /* ---- 매 순간 확인 ----
+     화면 갱신(rAF)은 창이 가려지면 멈추므로,
+     오디오의 timeupdate 로도 똑같이 확인합니다. */
+  function step() {
+    if (!running) return;
+    const now = Audio9.time;
+
+    // 마감을 지난 구간은 놓친 것으로 처리 (건너뛰기로 여러 개가 밀렸을 수도 있음)
+    let guard = 0;
+    while (running && idx < list.length && now > deadlineOf(idx) && guard++ < 200) {
+      miss();
+    }
+    // 이제 나올 구간이 시작할 때가 됐으면 띄웁니다
+    if (running && idx < list.length && !live && now >= showAtOf(idx)) {
+      setLive(true);
+    }
+    paint(now);
+  }
+
+  function tick() {
+    if (!running) return;
+    step();
+    raf = requestAnimationFrame(tick);
+  }
+
+  function paint(now) {
+    if (idx >= list.length) return;
+
+    $("#chantProgressBar").style.width = (idx / list.length) * 100 + "%";
+
+    if (live) {
+      // 남은 시간 막대
+      const from = showAtOf(idx);
+      const to = deadlineOf(idx);
+      const left = Math.max(0, Math.min(1, (to - now) / Math.max(0.01, to - from)));
+      const bar = $("#chantTimerBar");
+      bar.style.transform = "scaleX(" + left + ")";
+      bar.classList.toggle("is-hurry", left < 0.3);
+    } else {
+      const wait = Math.max(0, showAtOf(idx) - now);
+      $("#chantCountdown").textContent = wait < 10 ? wait.toFixed(1) : Math.round(wait);
+    }
+  }
+
+  /* ---- 결과 ---- */
+  function finish() {
+    running = false;
+    Audio9.stop();
+    if (raf) cancelAnimationFrame(raf);
+    if (verdictTimer) clearTimeout(verdictTimer);
+
+    const total = list.length;
+    const rate = total ? Math.round((stat.ok / total) * 100) : 0;
+
+    $("#chantResultTitle").textContent = song.title;
+    $("#chantRate").textContent = rate + "%";
+    $("#crOk").textContent = stat.ok;
+    $("#crMiss").textContent = stat.miss;
+    $("#crTotal").textContent = total;
+
+    const prev = loadBest(song.id);
+    const isBest = !prev || rate > prev.rate;
+    if (isBest) saveBest(song.id, { rate: rate, ok: stat.ok, total: total });
+    $("#crBest").textContent = (isBest ? rate : prev.rate) + "%";
+
+    // 놓친 구간 목록
+    const box = $("#missList");
+    if (missed.length) {
+      const body = $("#missBody");
+      body.replaceChildren();
+      missed.forEach((m) => {
+        const chip = document.createElement("span");
+        chip.className = "miss-chip";
+        const t = document.createElement("i");
+        t.textContent = fmtMmSs(m.time);
+        chip.append(t, document.createTextNode(m.text));
+        body.appendChild(chip);
+      });
+      box.hidden = false;
+    } else {
+      box.hidden = true;
+    }
+
+    pickResultArt("#artChant");
+    showScreen("screen-chant-result");
+  }
+
+  function quit() {
+    running = false;
+    Audio9.stop();
+    setStageBg("");
+    if (raf) cancelAnimationFrame(raf);
+    if (verdictTimer) clearTimeout(verdictTimer);
+  }
+
+  /* ---- 입력 ---- */
+  function onInput() {
+    if (!running || !live) return;
+    if (input.value.length > list[idx].text.length) {
+      input.value = input.value.slice(0, list[idx].text.length);
+    }
+    renderTypingCells(elLine, list[idx].text, input.value, composing);
+    if (!composing && sameLine(input.value, list[idx].text)) hit();
+  }
+
+  input.addEventListener("compositionstart", () => { composing = true; });
+  input.addEventListener("compositionupdate", () => {
+    composing = true;
+    if (live) renderTypingCells(elLine, list[idx].text, input.value, true);
+  });
+  input.addEventListener("compositionend", () => { composing = false; onInput(); });
+  input.addEventListener("input", (e) => {
+    if (e.isComposing || composing) {
+      if (live) renderTypingCells(elLine, list[idx].text, input.value, true);
+      return;
+    }
+    onInput();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") e.preventDefault();
+    if (e.key === "Escape") { quit(); showScreen("screen-chant-select"); }
+  });
+
+  // 화면 아무 데나 눌러도 입력창에 포커스가 돌아오게
+  $("#screen-chant").addEventListener("mousedown", (e) => {
+    if (e.target.tagName === "BUTTON") return;
+    setTimeout(() => input.focus(), 0);
+  });
+
+  // 화면이 가려지면 rAF 가 멈추므로 오디오 이벤트로도 확인합니다
+  Audio9.el.addEventListener("timeupdate", () => { if (running) step(); });
+
+  return { renderSongList, start, quit, getSong: () => song };
+})();
+
 /* ======================= 5-a. 결과 공유 =======================
    결과를 정사각형 카드 이미지로 그려서 저장하거나 SNS 로 보냅니다.
    외부 라이브러리 없이 캔버스에 직접 그립니다. */
@@ -1964,6 +2303,7 @@ const Ranking = (() => {
 function goHome() {
   Lyrics.quit();
   Quiz.quit();
+  Chant.quit();
   Audio9.stop();
   setStageBg("");
   showScreen("screen-home");
@@ -2092,6 +2432,14 @@ function init() {
   Ranking.init();
   Share.init();
   Lyrics.renderSongList();
+  Chant.renderSongList();
+
+  // ---- 응원법 모드 ----
+  $("#btnModeChant").addEventListener("click", () => showScreen("screen-chant-select"));
+  $("#btnQuitChant").addEventListener("click", () => { Chant.quit(); showScreen("screen-chant-select"); });
+  $("#btnRetryChant").addEventListener("click", () => Chant.start(Chant.getSong()));
+  $("#btnChangeChantSong").addEventListener("click", () => { setStageBg(""); showScreen("screen-chant-select"); });
+  $("#btnHomeFromChant").addEventListener("click", goHome);
 
   // ---- 시작 화면 ----
   $("#btnModeLyrics").addEventListener("click", () => showScreen("screen-select"));

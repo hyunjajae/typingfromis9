@@ -101,6 +101,24 @@
             <span class="mode-card__go">시작하기 →</span>
           </span>
         </button>
+
+        <button class="mode-card" id="btnModeChant" type="button">
+          <span class="mode-card__demo demo--chant">
+            <span class="demo-chant">
+              <span class="demo-chant__bar"><i></i></span>
+              <span class="demo-line">
+                <span class="demo-ch is-ok">프</span><span class="demo-ch is-ok">로</span><span class="demo-ch is-ok">미</span><span class="demo-ch is-cur">스</span><span class="demo-ch">나</span><span class="demo-ch">인</span>
+              </span>
+            </span>
+            <span class="demo-caption">성공 24 · 놓침 3 / 32</span>
+          </span>
+          <span class="mode-card__body">
+            <span class="mode-card__no">03</span>
+            <span class="mode-card__title">응원법</span>
+            <span class="mode-card__desc">노래는 멈추지 않습니다. 응원 구간이 뜨면<br />그 안에 쳐야 성공하는 순발력 도전.</span>
+            <span class="mode-card__go">시작하기 →</span>
+          </span>
+        </button>
       </div>
 
       <!-- 랭킹이 켜져 있을 때만 보입니다 -->
@@ -336,6 +354,95 @@
       <div class="btn-row btn-row--lg">
         <button class="solid-btn" id="btnRetryQuiz" type="button">다시하기</button>
         <button class="ghost-btn" id="btnHomeFromQuiz" type="button">시작 화면</button>
+      </div>
+    </section>
+
+    <!-- ============ 화면 9 : 응원법 곡 선택 ============ -->
+    <section class="screen" id="screen-chant-select">
+      <div class="page-head">
+        <p class="page-head__eyebrow">모드 03</p>
+        <h2 class="page-head__title">곡을 고르세요</h2>
+        <p class="page-head__sub">응원법이 등록된 곡만 표시됩니다.</p>
+      </div>
+      <div class="song-grid" id="chantGrid"></div>
+    </section>
+
+    <!-- ============ 화면 10 : 응원법 플레이 ============ -->
+    <section class="screen screen--play" id="screen-chant">
+      <div class="play-head">
+        <div class="play-head__id">
+          <img class="play-head__cover" id="chantCover" alt="" hidden />
+          <div>
+            <p class="play-head__song" id="chantSongTitle">곡 제목</p>
+            <p class="play-head__meta">
+              성공 <b id="chantOk">0</b> · 놓침 <b id="chantMiss">0</b> / <span id="chantTotal">0</span>
+            </p>
+          </div>
+        </div>
+        <div class="play-head__actions">
+          <span class="badge badge--warn" id="chantNoAudio" hidden>오디오 파일 없음</span>
+          <button class="ghost-btn" id="btnQuitChant" type="button">그만두기</button>
+        </div>
+      </div>
+
+      <div class="progress"><div class="progress__bar" id="chantProgressBar"></div></div>
+
+      <div class="chant-stage" id="chantStage">
+        <!-- 응원 구간이 아직 안 왔을 때 -->
+        <div class="chant-idle" id="chantIdle">
+          <p class="chant-idle__label">다음 응원까지</p>
+          <p class="chant-idle__count" id="chantCountdown">–</p>
+        </div>
+
+        <!-- 응원 구간이 떴을 때 -->
+        <div class="chant-live" id="chantLive" hidden>
+          <div class="chant-timer"><div class="chant-timer__bar" id="chantTimerBar"></div></div>
+          <div class="chant-line-wrap">
+            <p class="lyric lyric--current chant-line" id="chantLine"></p>
+          </div>
+        </div>
+
+        <!-- 판정 결과가 잠깐 뜨는 자리 -->
+        <p class="chant-verdict" id="chantVerdict"></p>
+
+        <input class="type-input chant-input" id="chantInput" type="text"
+               autocomplete="off" autocorrect="off" autocapitalize="off"
+               spellcheck="false" aria-label="응원법 입력" />
+      </div>
+
+      <p class="hint-line">노래는 멈추지 않습니다 · 구간이 뜨면 시간 안에 정확히 치세요</p>
+    </section>
+
+    <!-- ============ 화면 11 : 응원법 결과 ============ -->
+    <section class="screen" id="screen-chant-result">
+      <div class="page-head">
+        <p class="page-head__eyebrow">응원법 결과</p>
+        <h2 class="page-head__title" id="chantResultTitle">곡 제목</h2>
+      </div>
+
+      <figure class="result-art" id="artChant" hidden>
+        <span class="result-art__bg"></span>
+        <img class="result-art__img" alt="" />
+      </figure>
+
+      <div class="big-time" id="chantRate">0%</div>
+
+      <div class="stat-row">
+        <div class="stat"><i>성공</i><b id="crOk">0</b><em>Hit</em></div>
+        <div class="stat"><i>놓침</i><b id="crMiss">0</b><em>Miss</em></div>
+        <div class="stat"><i>전체 구간</i><b id="crTotal">0</b><em>Total</em></div>
+        <div class="stat"><i>내 최고</i><b id="crBest">—</b><em>Best</em></div>
+      </div>
+
+      <div class="miss-list" id="missList" hidden>
+        <p class="miss-list__title">놓친 구간</p>
+        <div class="miss-list__body" id="missBody"></div>
+      </div>
+
+      <div class="btn-row btn-row--lg">
+        <button class="solid-btn" id="btnRetryChant" type="button">다시하기</button>
+        <button class="ghost-btn" id="btnChangeChantSong" type="button">곡 바꾸기</button>
+        <button class="ghost-btn" id="btnHomeFromChant" type="button">시작 화면</button>
       </div>
     </section>
 

@@ -918,6 +918,144 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
   .skip-toast__key { display: none; }
 }
 
+/* ---------- 9-b. 응원법 무대 ----------
+   노래는 계속 흐르고, 응원 구간이 왔을 때만 글자 칸이 뜹니다. */
+.chant-stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 340px;
+  padding: 30px 0;
+  text-align: center;
+}
+
+/* 구간이 오기 전 */
+.chant-idle { animation: rise .3s var(--ease) both; }
+.chant-idle__label {
+  margin: 0 0 6px;
+  font-size: 13px;
+  letter-spacing: .1em;
+  color: var(--muted);
+}
+.chant-idle__count {
+  margin: 0;
+  font-size: clamp(2.6rem, 8vw, 4.2rem);
+  font-weight: 800;
+  letter-spacing: -.04em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  opacity: .5;
+}
+
+/* 구간이 떴을 때 */
+.chant-live { width: 100%; animation: rise .25s var(--ease) both; }
+
+.chant-timer {
+  width: min(460px, 78%);
+  height: 6px;
+  margin: 0 auto 26px;
+  border-radius: 6px;
+  background-color: var(--line);
+  overflow: hidden;
+}
+.chant-timer__bar {
+  height: 100%;
+  width: 100%;
+  border-radius: 6px;
+  background-color: var(--accent);
+  transform-origin: left;
+}
+/* 시간이 얼마 안 남으면 빨갛게 */
+.chant-timer__bar.is-hurry { background-color: var(--wrong); }
+
+.chant-line-wrap { position: relative; }
+.chant-line {
+  justify-content: center;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: clamp(1.7rem, 5vw, 2.8rem);
+}
+
+/* 판정 표시 */
+.chant-verdict {
+  margin: 0;
+  min-height: 30px;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+.chant-verdict.is-ok { color: var(--accent); animation: pop .35s var(--ease); }
+.chant-verdict.is-miss { color: var(--wrong); animation: pop .35s var(--ease); }
+@keyframes pop {
+  0% { transform: scale(.8); opacity: 0; }
+  60% { transform: scale(1.08); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 입력창은 안 보이지만 한글 조합을 위해 무대 전체를 덮습니다 */
+.chant-input {
+  position: absolute;
+  inset: 0;
+  text-align: center;
+  font-size: clamp(1.7rem, 5vw, 2.8rem);
+}
+
+/* 놓친 구간 목록 (결과 화면) */
+.miss-list {
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  margin-bottom: 30px;
+}
+.miss-list__title {
+  margin: 0 0 12px;
+  font-size: 12px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+.miss-list__body { display: flex; flex-wrap: wrap; gap: 8px; }
+.miss-chip {
+  font-size: 13.5px;
+  background-color: var(--wrong-soft);
+  color: var(--wrong);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-weight: 600;
+}
+.miss-chip i { font-style: normal; opacity: .65; margin-right: 6px; font-variant-numeric: tabular-nums; }
+
+/* 03 카드 미리보기 */
+.demo-chant { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.demo-chant__bar {
+  display: block;
+  width: 150px; height: 5px;
+  border-radius: 5px;
+  background-color: var(--line);
+  overflow: hidden;
+}
+.demo-chant__bar i {
+  display: block;
+  height: 100%;
+  width: 62%;
+  border-radius: 5px;
+  background-color: var(--accent);
+  animation: demo-shrink 2.4s var(--ease) infinite;
+}
+@keyframes demo-shrink { 0% { width: 100%; } 100% { width: 8%; } }
+@media (prefers-reduced-motion: reduce) { .demo-chant__bar i { animation: none; } }
+
+@media (max-width: 760px) {
+  .chant-stage { min-height: 0; padding: 20px 0 10px; gap: 14px; }
+  .chant-timer { margin-bottom: 18px; }
+}
+
 /* ---------- 10. 퀴즈 무대 ---------- */
 /* ---- 정답 공개 판 (앨범 커버) ---- */
 .quiz-reveal {
