@@ -273,22 +273,25 @@ main {
 /* 맨 위에 크게 놓는 강조 카드 */
 .mode-card--featured { grid-column: 1 / -1; }
 
+/* 아래쪽 .mode-card 규칙(세로 배치)보다 우선하도록 클래스를 두 번 겹쳐 씁니다.
+   그냥 .mode-card--featured 로 쓰면 나중에 나오는 .mode-card 에 밀려서
+   세로 배치인 채로 데모 폭만 46% 가 되어 오른쪽이 비어 보입니다. */
 @media (min-width: 761px) {
-  .mode-card--featured { flex-direction: row; align-items: stretch; }
-  .mode-card--featured .mode-card__demo {
+  .mode-card.mode-card--featured { flex-direction: row; align-items: stretch; }
+  .mode-card.mode-card--featured .mode-card__demo {
     width: 46%;
     flex: none;
     height: auto;
     border-bottom: 0;
     border-right: 1px solid var(--line);
   }
-  .mode-card--featured .mode-card__body {
+  .mode-card.mode-card--featured .mode-card__body {
     display: flex;
     flex-direction: column;
     justify-content: center;
     padding: 34px 36px;
   }
-  .mode-card--featured .mode-card__title { font-size: 31px; }
+  .mode-card.mode-card--featured .mode-card__title { font-size: 31px; }
 }
 
 /* NEW 배지 */

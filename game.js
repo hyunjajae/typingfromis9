@@ -1855,7 +1855,7 @@ const Chant = (() => {
     }
 
     Share.set({
-      modeLabel: "응원법",
+      modeLabel: "응원법 타이핑",
       title: song.title,
       sub: song.album || "",
       color: song.color || "#0f9d76",
