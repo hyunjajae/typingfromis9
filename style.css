@@ -1789,11 +1789,22 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
   margin: 20px 0 4px;
 }
 
-/* ---- 아래 버튼 줄은 위 내용과 충분히 떼어놓습니다 ----
-   .btn-row 자체에는 위 여백이 없어서, 바로 앞 요소에 아래 여백이 없으면
-   버튼이 카드에 딱 붙습니다. 카드 그림자까지 겹쳐서 눌린 것처럼 보여요. */
+/* ---- 아래 버튼 줄 ----
+   ① 위 내용과 충분히 떼어놓습니다.
+      .btn-row 자체에는 위 여백이 없어서, 바로 앞 요소에 아래 여백이 없으면
+      버튼이 카드에 딱 붙습니다. 카드 그림자까지 겹쳐서 눌린 것처럼 보여요.
+   ② 위 내용이 가운데 모여 있는데 버튼만 왼쪽 끝에 붙어 있으면 어긋나 보입니다.
+      준비 화면은 카드가 620px 로 가운데 있으니 버튼도 같은 폭 안에서 가운데로. */
 #screen-chant-how .btn-row,
-#screen-chant-ready .btn-row { margin-top: 38px; }
+#screen-chant-ready .btn-row {
+  margin-top: 38px;
+  justify-content: center;
+}
+#screen-chant-ready .btn-row {
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
+}
 
 /* 준비 화면은 단계 → 테스트 → 오류 순서라 사이 간격도 벌려둡니다 */
 #screen-chant-ready .ready-error { margin-top: 22px; }

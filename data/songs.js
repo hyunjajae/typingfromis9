@@ -324,7 +324,8 @@ const SONGS = [
       { time: 163.67, text: "프로미스나인 플로버와 함께해" },
       { time: 169.62, text: "프로미스나인!" },
       { time: 171.52, text: "와!!" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/neniv3zRhKc"
   },
 
   /* ---------- 03 ---------- */
@@ -442,7 +443,8 @@ const SONGS = [
       { time: 183.48, text: "언제나! 사랑해!" },
       { time: 188.32, text: "Stay this way" },
       { time: 189.84, text: "와!!!!" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/Ivm2GI0dPcA"
   },
 
   /* ---------- 04 ---------- */
@@ -574,7 +576,8 @@ const SONGS = [
       { time: 174.91, text: "See Aren’t you glad we did this together" },
       { time: 177.93, text: "Our love is true cause this is too great" },
       { time: 181.13, text: "와!!!" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/kZcZ-UWL7Gw"
   },
 
   /* ---------- 05 ---------- */
@@ -717,7 +720,8 @@ const SONGS = [
       { time: 190.27, text: "박지원! 이채영! 이나경! 백지헌!" },
       { time: 193.36, text: "플로버 내일도 한번더!" },
       { time: 195.68, text: "LOVE BOMB BOMB BOMB" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/VrjTbLUhDxQ"
   },
 
   /* ---------- 06 ---------- */
@@ -1014,7 +1018,8 @@ const SONGS = [
       { time: 216.41, text: "Feel Good" },
       { time: 218.79, text: "프로미스나인!" },
       { time: 220.71, text: "와!!!" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/kkGyzJt1WMc"
   },
 
   /* ---------- 09 ---------- */
@@ -1119,7 +1124,8 @@ const SONGS = [
       { time: 155.85, text: "Supersonic Supersonic uh" },
       { time: 168.40, text: "프로미스나인! 수!퍼!소!닉!" },
       { time: 171.73, text: "와!!!" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/Rj7jm69vYH0"
   },
 
   /* ---------- 10 ---------- */
@@ -1221,7 +1227,8 @@ const SONGS = [
       { time: 198.14, text: "와!!!" },
       { time: 208.21, text: "Hey!" },
       { time: 215.20, text: "와!!!" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/ZMc_xkWboFc"
   },
 
   /* ---------- 11 ---------- */
@@ -1669,7 +1676,8 @@ const SONGS = [
       { time: 182.77, text: "ME" },
       { time: 185.03, text: "A, B, C" },
       { time: 188.92, text: "와!!!" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/17tMsblcNh4"
   },
 
   /* ---------- 16 ---------- */
@@ -1765,6 +1773,7 @@ const SONGS = [
       { time: 160.96, text: "송하영 박지원 이채영" },
       { time: 164.68, text: "이나경 백지헌 프로미스나인" },
       { time: 176.02, text: "와!!!" }
-    ]
+    ],
+    chantVideo: "https://youtu.be/UlGeN6JHAJc"
   }
 ];
