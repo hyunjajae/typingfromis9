@@ -1085,8 +1085,10 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
    가사와 응원이 비슷한 크기·굵기로 나란히 있으면
    외치는 사람이 둘 중 뭘 봐야 하는지 헷갈립니다.
    가사는 "지금 어디쯤인지" 알려주는 참고용이므로 뒤로 물립니다. */
-.chant-stage--voice .chant-lyrics { opacity: .45; }
-.chant-stage--voice .chant-lyric--now { font-weight: 600; }
+/* 음성일 때도 <지금 부르는 줄> 은 또렷하게 둡니다.
+   예전에는 가사 덩어리를 통째로 흐리게(45%) 했더니 지금 줄까지 회색이 돼서
+   잘 안 보였습니다. 뒤로 물릴 건 위아래 줄이지 지금 줄이 아닙니다. */
+.chant-stage--voice .chant-lyric--side { opacity: .2; }
 .chant-stage--voice .chant-slot { min-height: 200px; }
 
 .chant-timer {
@@ -2287,9 +2289,14 @@ html[data-theme="dark"] .rank-tab.is-on { color: #06120d; }
   background-color: rgba(var(--bg-rgb), .82);
   backdrop-filter: blur(6px);
   animation: rise .25s var(--ease) both;
+  /* 창이 낮으면(노트북 작은 화면, 가로로 눕힌 휴대폰) 안이 길어져서
+     아래 버튼에 손이 안 닿습니다. 넘치면 스크롤되게 둡니다. */
+  overflow-y: auto;
 }
 .modal__box {
   width: min(420px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   background-color: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-l);

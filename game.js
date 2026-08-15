@@ -343,6 +343,10 @@ const BACK_TO = {
 
 let currentScreen = "screen-home";
 
+/* 랭킹을 결과 화면에서 열었으면, 뒤로 갈 때 그 결과 화면으로 돌아갑니다.
+   안 그러면 결과를 다시 볼 방법이 없어서 판을 새로 해야 했습니다. */
+let rankReturn = null;
+
 function showScreen(id) {
   currentScreen = id;
   $$(".screen").forEach((s) => s.classList.toggle("active", s.id === id));
@@ -364,6 +368,14 @@ function showScreen(id) {
 
 /** 지금 화면 기준으로 한 단계 뒤로 갑니다 */
 function goBack() {
+  // 결과 화면에서 열어본 랭킹이면 그 결과 화면으로 되돌립니다
+  if (currentScreen === "screen-ranking" && rankReturn) {
+    const back = rankReturn;
+    rankReturn = null;
+    showScreen(back);
+    return;
+  }
+
   const to = BACK_TO[currentScreen];
   if (!to) return;
 
@@ -1796,14 +1808,30 @@ const Chant = (() => {
       if (!live || resolved) return;
 
       const loud = this.sense();
+      const target = atOf(idx);
+      const inWindow = now >= target - tune.tol && now <= target + tune.tol;
+
+      /* 인정 구간이 열렸는데 그때 이미 소리를 내고 있으면, 그 순간부터 인정합니다.
+
+         예전에는 <소리를 내기 시작하는 순간> 만 봤습니다. 그래서 구간이 열리기
+         전부터 계속 소리를 내고 있으면 시작하는 순간이 없어서 놓침이 됐습니다.
+         앞 응원을 길게 끌었거나 응원이 촘촘히 붙어 있으면 자연히 그렇게 됩니다.
+         제때 소리를 내고 있었는데 놓침이 되는 건 말이 안 됩니다.
+
+         대신 창 안에서 낸 시간만 다시 셉니다. 창이 열리는 순간 잠깐 걸친 것으로는
+         통과되지 않게요. */
+      if (loud && !this.onsetOk && inWindow && this.wasLoud) {
+        this.onsetOk = true;
+        this.loud = 0;
+        if (this.onsetAt === null) this.onsetAt = now;
+      }
 
       // 소리를 내기 시작한 순간을 잡습니다
       if (loud && !this.wasLoud) {
         this.onsetAt = now;
         this.loud = 0;
         // 그 순간이 응원 시각 언저리였는가 — 이것만으로 맞았는지가 정해집니다
-        const target = atOf(idx);
-        this.onsetOk = now >= target - tune.tol && now <= target + tune.tol;
+        this.onsetOk = inWindow;
 
         /* 나중에 타이밍을 다듬을 수 있게, 찍어둔 시각과 얼마나 차이 났는지
            그대로 적어둡니다. (보정값을 뺀 날것 그대로 — 판정 성공 여부와 무관) */
@@ -1971,7 +1999,9 @@ const Chant = (() => {
      영상은 <입력 방식 고르는 화면> 에서만 봅니다. 마이크를 맞추는 화면에서는
      소리를 재는 중이라 영상이 나오면 방해만 됩니다. */
   function paintVideoBtns() {
-    $("#btnChantVideo1").hidden = !(song && song.chantVideo);
+    const has = !!(song && song.chantVideo);
+    $("#btnChantVideo1").hidden = !has;
+    $("#btnChantVideoResult").hidden = !has;
   }
 
   /* ---- 유튜브 주소에서 영상 번호만 뽑기 ----
@@ -2622,7 +2652,12 @@ const Chant = (() => {
     });
 
     // 키보드 모드는 타이밍을 확인해보는 용도라 랭킹에 올리지 않습니다
-    if (mode === "key") { $("#submitChant").hidden = true; paintTuneBox(); pickResultArt("#artChant"); showScreen("screen-chant-result"); return; }
+    if (mode === "key") {
+      $("#submitChant").hidden = true;
+      paintTuneBox(); paintVideoBtns(); pickResultArt("#artChant");
+      showScreen("screen-chant-result");
+      return;
+    }
 
     Ranking.offer({
       mode: "chant",
@@ -2635,6 +2670,7 @@ const Chant = (() => {
     });
 
     paintTuneBox();
+    paintVideoBtns();          // 결과 화면에서도 영상을 다시 볼 수 있게
     pickResultArt("#artChant");
     showScreen("screen-chant-result");
   }
@@ -2946,6 +2982,7 @@ const Chant = (() => {
     }
   });
   $("#btnChantVideo1").addEventListener("click", openVideo);
+  $("#btnChantVideoResult").addEventListener("click", openVideo);
   $("#btnVideoClose").addEventListener("click", closeVideo);
   $("#btnVidHere").addEventListener("click", () => {
     if (!ytPlayer || !ytPlayer.getCurrentTime) return;
@@ -3764,7 +3801,10 @@ const Ranking = (() => {
       .forEach(([sel, mode]) => {
         const b = $(sel);
         b.hidden = false;
-        b.addEventListener("click", () => openAt(mode));
+        b.addEventListener("click", () => {
+          rankReturn = currentScreen;      // 뒤로 가면 여기로 돌아옵니다
+          openAt(mode);
+        });
       });
 
     // 응원법이 등록된 곡이 없으면 탭을 숨깁니다
@@ -3804,6 +3844,7 @@ const Ranking = (() => {
 /* ======================= 6. 시작 화면 · 초기화 ======================= */
 
 function goHome() {
+  rankReturn = null;
   Lyrics.quit();
   Quiz.quit();
   Chant.quit();
