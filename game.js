@@ -1604,13 +1604,13 @@ const Chant = (() => {
      타이핑은 치는 속도가 사람마다 달라서 넉넉히 3초를 줍니다.
      음성은 인정 구간이 끝나면 바로 판정합니다. 조금 여유만 둡니다. */
   function graceOf(i) {
-    if (mode !== "voice") return GRACE;
+    if (!isBeat()) return GRACE;
     return tune.tol + MIN_VOICE + 0.15;
   }
 
   /** 이 구간을 "노려야 하는 시각". 음성일 때만 조금 뒤로 밀려 있습니다. */
   function atOf(i) {
-    return list[i].time + (mode === "voice" ? tune.offset : 0);
+    return list[i].time + (isBeat() ? tune.offset : 0);
   }
 
   function deadlineOf(i) {
@@ -1631,7 +1631,7 @@ const Chant = (() => {
      → 미리 다 쳐놓았다면 time 이 되는 순간 성공으로 넘어갑니다. */
   function judgeFrom(i) {
     // 음성은 인정 구간이 time 앞뒤로 열려 있습니다.
-    const start = atOf(i) - (mode === "voice" ? tune.tol : 0);
+    const start = atOf(i) - (isBeat() ? tune.tol : 0);
     // 응원이 아주 촘촘히 붙어 있으면 마감이 time 보다 앞에 올 수도 있습니다.
     // 그러면 성공할 방법이 아예 없어지므로, 최소한의 시간은 남겨둡니다.
     return Math.min(start, deadlineOf(i) - 0.4);
@@ -1723,9 +1723,14 @@ const Chant = (() => {
       this.setText(c.text, 0);
     },
 
+    /** "지금 소리를 내고 있는가" — 키보드 모드는 이것만 바꿔서 씁니다 */
+    sense() { return Voice.isLoud(); },
+
     onFrame(now, judge) {
-      Voice.update();
-      Voice.paintGauge($("#chantBar"), $("#chantZone"), $("#chantGaugeHint"));
+      if (this.id === "voice") {
+        Voice.update();
+        Voice.paintGauge($("#chantBar"), $("#chantZone"), $("#chantGaugeHint"));
+      }
 
       // 흐른 시간은 실제 시계로 잽니다.
       // (이 함수는 화면 갱신 때도, 오디오 이벤트 때도 불려서 간격이 일정하지 않습니다)
@@ -1735,7 +1740,7 @@ const Chant = (() => {
 
       if (!live || resolved) return;
 
-      const loud = Voice.isLoud();
+      const loud = this.sense();
 
       // 소리를 내기 시작한 순간을 잡습니다
       if (loud && !this.wasLoud) {
@@ -1771,7 +1776,33 @@ const Chant = (() => {
     cleanup() { Voice.close(); }
   };
 
-  const methodOf = (m) => (m === "voice" ? VoiceMode : Typing);
+  /* ---- ③ 키보드로 박자만 맞추기 ----
+     마이크 없이도 타이밍 판정을 그대로 써볼 수 있게 한 것입니다.
+     "소리를 내고 있는가" 를 "스페이스를 누르고 있는가" 로 바꾸기만 하면
+     나머지(시작 순간 잡기·판정·타이밍 다듬기)는 음성과 완전히 같습니다. */
+  let spaceDown = false;
+
+  const KeyMode = Object.assign({}, VoiceMode, {
+    id: "key",
+    enter() {
+      input.hidden = true;
+      input.disabled = true;
+      $("#chantGauge").hidden = true;
+      elLine.classList.add("chant-line--voice");
+      $("#chantStage").classList.add("chant-stage--voice");
+      $("#chantHint").textContent = "구간이 뜨면 박자에 맞춰 스페이스를 누르세요 (마이크 없이 테스트)";
+      spaceDown = false;
+    },
+    // 게이지·마이크는 건드리지 않고, 누름 상태만 봅니다
+    sense() { return spaceDown; },
+    cleanup() { spaceDown = false; }
+  });
+
+  /* 음성이든 키보드든 "박자를 맞추는" 방식입니다 (타이핑과 구분) */
+  const isBeat = () => mode === "voice" || mode === "key";
+
+  const methodOf = (m) =>
+    m === "voice" ? VoiceMode : m === "key" ? KeyMode : Typing;
 
   /* ---- 곡 목록 ---- */
   function renderSongList() {
@@ -1858,6 +1889,8 @@ const Chant = (() => {
     $("#chantHowTitle").textContent = s.title + " — 어떻게 연습할까요?";
     paintVideoBtns();
     $("#howNote").hidden = true;
+    // 마이크 없이 타이밍만 확인해보는 길 (나 전용)
+    $("#howKeyLine").hidden = !(FEATURES && FEATURES.devTune);
     paintHowCover(s);
     setStageBg(s.cover);       // 화면 전체에도 앨범 커버를 흐리게 깝니다
     showScreen("screen-chant-how");
@@ -2179,7 +2212,7 @@ const Chant = (() => {
      구간이 뜰 때 글자가 새로 생기지 않으니 자리가 안 튑니다. */
   function preview() {
     if (idx >= list.length) { elLine.textContent = ""; return; }
-    if (mode === "voice") VoiceMode.setText(list[idx].text, 0);
+    if (isBeat()) method.setText(list[idx].text, 0);
     else renderTypingCells(elLine, list[idx].text, "", false);
   }
 
@@ -2332,8 +2365,8 @@ const Chant = (() => {
       const to = deadlineOf(idx);
       const span = Math.max(0.01, to - from);
 
-      if (mode === "voice") {
-        /* 음성은 "언제 지르는가" 가 전부라서, 남은 시간보다
+      if (isBeat()) {
+        /* 음성·키보드는 "언제 시작하는가" 가 전부라서, 남은 시간보다
            <외쳐야 하는 순간> 을 보여주는 게 훨씬 도움이 됩니다.
            초록 구간에 현재 위치 선이 들어왔을 때 지르면 됩니다. */
         const target = atOf(idx);
@@ -2372,7 +2405,8 @@ const Chant = (() => {
     const voice = mode === "voice";
 
     $("#screen-chant-result .page-head__eyebrow").textContent =
-      voice ? "응원법 외치기 결과" : "응원법 타이핑 결과";
+      mode === "key" ? "응원법 박자 테스트 결과"
+      : voice ? "응원법 외치기 결과" : "응원법 타이핑 결과";
     $("#chantResultTitle").textContent = song.title;
     $("#chantRate").textContent = rate + "%";
     $("#crOk").textContent = stat.ok;
@@ -2420,6 +2454,9 @@ const Chant = (() => {
                  "https://typingfromis9.kr\n#fromis_9 #프로미스나인 #플로버"
     });
 
+    // 키보드 모드는 타이밍을 확인해보는 용도라 랭킹에 올리지 않습니다
+    if (mode === "key") { $("#submitChant").hidden = true; paintTuneBox(); pickResultArt("#artChant"); showScreen("screen-chant-result"); return; }
+
     Ranking.offer({
       mode: "chant",
       input: mode,               // 음성과 타이핑은 순위를 따로 매깁니다
@@ -2460,7 +2497,7 @@ const Chant = (() => {
   };
 
   function tuneReport() {
-    if (mode !== "voice" || onsetLog.length < 4) return null;
+    if (!isBeat() || onsetLog.length < 4) return null;
     const bias = median(onsetLog.map((o) => o.raw));
     const off = onsetLog
       .map((o) => ({ i: o.i, resid: o.raw - bias }))
@@ -2573,9 +2610,20 @@ const Chant = (() => {
   // 화면이 가려지면 rAF 가 멈추므로 오디오 이벤트로도 확인합니다
   Audio9.el.addEventListener("timeupdate", () => { if (running) step(); });
 
+  /* ---- 키보드 모드 : 스페이스를 "소리" 로 씁니다 ---- */
+  document.addEventListener("keydown", (e) => {
+    if (mode !== "key" || currentScreen !== "screen-chant") return;
+    if (e.key === " ") { e.preventDefault(); spaceDown = true; }
+  });
+  document.addEventListener("keyup", (e) => {
+    if (mode !== "key") return;
+    if (e.key === " ") { e.preventDefault(); spaceDown = false; }
+  });
+
   /* ---- 준비 화면 · 영상 창 버튼들 ---- */
   $("#btnHowVoice").addEventListener("click", toReady);
   $("#btnHowTyping").addEventListener("click", () => start(song, "typing"));
+  $("#btnHowKey").addEventListener("click", () => start(song, "key"));
   $("#btnBackToChantSongs").addEventListener("click", () => {
     release();
     setStageBg("");
@@ -2633,6 +2681,267 @@ const Chant = (() => {
     getSong: () => song,
     getMode: () => mode
   };
+})();
+
+/* ======================= 5-z. 싱크 조정 (나 전용) =======================
+
+   따로 만든 도구(lyrics-timer / lyrics-tuner)에서 맞추고 오면 싱크가
+   어긋나는 문제가 있었습니다. 도구는 파일을 통째로 받아서(blob) 재생하고
+   게임은 mp3 를 그대로 재생하는 등, 오디오를 다루는 방식이 다릅니다.
+
+   그래서 여기서는 <게임이 실제로 쓰는 그 재생기(Audio9)> 로 맞춥니다.
+   맞춘 값은 곧바로 게임 데이터에 반영되니 그 자리에서 확인할 수 있습니다.
+   (영구 저장은 코드를 복사해서 songs.js 에 붙여넣기)
+
+   여는 법 : 주소 뒤에 #tune 을 붙이거나, features.js 의 devTune 을 켜면
+             시작 화면 아래에 링크가 생깁니다.
+   ======================================================================= */
+
+const Tune = (() => {
+  let song = null;
+  let kind = "lyrics";          // "lyrics" | "chants"
+  let rows = [];                // 지금 고치고 있는 배열 (SONGS 안의 그 배열입니다)
+  let orig = [];                // 처음 값 (되돌리기용)
+  let sel = 0;                  // 고른 줄
+  let taps = {};                // { 줄번호: 찍은 시각 }
+  let raf = null;
+
+  const listOf = () => (song ? song[kind] || [] : []);
+
+  function fillSongs() {
+    const box = $("#tuneSong");
+    const keep = box.value;
+    box.replaceChildren();
+    orderedSongs().forEach((s) => {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = s.title +
+        "  (가사 " + ((s.lyrics || []).length) + " · 응원 " + ((s.chants || []).length) + ")";
+      box.appendChild(o);
+    });
+    if (keep) box.value = keep;
+  }
+
+  function loadSong() {
+    song = SONGS.find((s) => s.id === $("#tuneSong").value) || SONGS[0];
+    Audio9.stop();
+    Audio9.load(song.audio, () => {});
+    setKind(kind);
+  }
+
+  /* ---- 목록 그리기 ---- */
+  function render() {
+    const box = $("#tuneRows");
+    box.replaceChildren();
+
+    if (rows.length === 0) {
+      box.innerHTML = '<p class="rank-empty">이 곡에는 ' +
+        (kind === "lyrics" ? "가사" : "응원법") + "가 아직 없습니다.</p>";
+      paintTapBox();
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    rows.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = "tune-row2" + (i === sel ? " is-sel" : "") + (taps[i] != null ? " is-tapped" : "");
+
+      const t = document.createElement("b");
+      t.className = "tune-row2__t";
+      t.textContent = r.time.toFixed(2);
+
+      const tx = document.createElement("span");
+      tx.className = "tune-row2__x";
+      tx.textContent = r.text;
+
+      // 처음 값과 달라졌으면 얼마나 옮겼는지
+      const d = r.time - (orig[i] ? orig[i].time : r.time);
+      const diff = document.createElement("i");
+      diff.className = "tune-row2__d";
+      if (Math.abs(d) > 0.001) {
+        diff.textContent = (d > 0 ? "+" : "−") + Math.abs(d).toFixed(2);
+        diff.classList.add(d > 0 ? "is-late" : "is-early");
+      }
+
+      const acts = document.createElement("span");
+      acts.className = "tune-row2__acts";
+      [["−.05", -0.05], ["+.05", 0.05]].forEach((pair) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "mini";
+        b.textContent = pair[0];
+        b.addEventListener("click", (e) => { e.stopPropagation(); sel = i; nudge(pair[1]); });
+        acts.appendChild(b);
+      });
+      const play = document.createElement("button");
+      play.type = "button";
+      play.className = "mini mini--play";
+      play.textContent = "▶";
+      play.title = "이 줄 들어보기";
+      play.addEventListener("click", (e) => { e.stopPropagation(); sel = i; preview(); });
+      acts.appendChild(play);
+
+      row.addEventListener("click", () => { sel = i; render(); });
+      row.append(t, tx, diff, acts);
+      frag.appendChild(row);
+    });
+    box.appendChild(frag);
+
+    const cur = box.children[sel];
+    if (cur) cur.scrollIntoView({ block: "nearest" });
+    paintTapBox();
+  }
+
+  /* ---- 한 줄 미세조정 ---- */
+  function nudge(d) {
+    if (!rows[sel]) return;
+    rows[sel].time = Math.max(0, Math.round((rows[sel].time + d) * 100) / 100);
+    render();
+  }
+
+  /** 그 줄 앞뒤를 잠깐 들려줍니다 (제 시각에 시작하는지 귀로 확인) */
+  function preview() {
+    if (!rows[sel]) return;
+    Audio9.playSegment(Math.max(0, rows[sel].time - 1.2), 2.6);
+  }
+
+  function toggle() {
+    if (Audio9.paused) Audio9.play(rows[sel] ? Math.max(0, rows[sel].time - 2) : 0);
+    else Audio9.pause();
+  }
+
+  /* ---- Space 로 찍기 ----
+     재생 중에 누르면, 지금 시각에서 가장 가까운 줄에 기록합니다. */
+  function tap() {
+    if (Audio9.paused || rows.length === 0) return;
+    const now = Audio9.time;
+    let best = -1, bestD = 9;
+    rows.forEach((r, i) => {
+      const d = Math.abs(r.time - now);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    if (best < 0 || bestD > 2.0) return;      // 너무 먼 곳은 무시
+    taps[best] = now;
+    sel = best;
+    render();
+  }
+
+  const median = (a) => {
+    const s = a.slice().sort((x, y) => x - y);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  const tapKeys = () => Object.keys(taps).map(Number);
+
+  function paintTapBox() {
+    const keys = tapKeys();
+    $("#tuneTapBox").hidden = keys.length === 0;
+    if (keys.length === 0) return;
+    const bias = median(keys.map((i) => taps[i] - rows[i].time));
+    $("#tuneTapMsg").innerHTML =
+      "<b>" + keys.length + "줄</b> 찍었습니다. 누르는 습관이 평균 " +
+      (bias >= 0 ? "+" : "−") + Math.abs(bias).toFixed(2) + "초 — " +
+      "<b>이 습관은 빼고</b> 줄마다 어긋난 만큼만 옮깁니다.";
+    $("#btnTuneApplyTaps").disabled = keys.length < 3;
+  }
+
+  /* ---- 찍은 대로 맞추기 ----
+     누르는 반응 속도(모든 줄에 공통으로 깔린 값)는 빼고,
+     줄마다 남는 차이만 반영합니다. 안 그러면 내 반응 속도가
+     곡 데이터에 통째로 박혀버립니다. */
+  function applyTaps() {
+    const keys = tapKeys();
+    if (keys.length < 3) return;
+    const bias = median(keys.map((i) => taps[i] - rows[i].time));
+    keys.forEach((i) => {
+      const resid = (taps[i] - rows[i].time) - bias;
+      if (Math.abs(resid) >= 0.02) {
+        rows[i].time = Math.max(0, Math.round((rows[i].time + resid) * 100) / 100);
+      }
+    });
+    taps = {};
+    render();
+  }
+
+  function code() {
+    const lines = rows.map((r, i) =>
+      "      { time: " + r.time.toFixed(2) + ', text: "' +
+      String(r.text).replace(/"/g, '\\"') + '" }' + (i < rows.length - 1 ? "," : ""));
+    return "    " + kind + ": [\n" + lines.join("\n") + "\n    ]";
+  }
+
+  async function copyCode() {
+    const text = code();
+    try {
+      await navigator.clipboard.writeText(text);
+      $("#tuneOut").hidden = true;
+      $("#btnTuneCopy").textContent = "복사했어요";
+      setTimeout(() => { $("#btnTuneCopy").textContent = "코드 복사"; }, 1600);
+    } catch (e) {
+      const ta = $("#tuneOut");
+      ta.value = text;
+      ta.hidden = false;
+      ta.select();
+    }
+  }
+
+  function revert() {
+    rows.forEach((r, i) => { if (orig[i]) r.time = orig[i].time; });
+    taps = {};
+    render();
+  }
+
+  function tick() {
+    if (currentScreen !== "screen-tune") { raf = null; return; }
+    const t = Audio9.time;
+    $("#tuneClock").textContent = fmtMmSs(t) + "." + String(Math.floor((t % 1) * 10));
+    $("#btnTunePlay").textContent = Audio9.paused ? "▶ 재생" : "❚❚ 정지";
+    raf = requestAnimationFrame(tick);
+  }
+
+  function setKind(k) {
+    kind = k;
+    $("#tuneKindLyrics").classList.toggle("is-on", k === "lyrics");
+    $("#tuneKindChants").classList.toggle("is-on", k === "chants");
+    rows = listOf();
+    orig = rows.map((r) => ({ time: r.time, text: r.text }));
+    sel = 0;
+    taps = {};
+    render();
+  }
+
+  function open() {
+    fillSongs();
+    loadSong();
+    showScreen("screen-tune");
+    if (!raf) tick();
+  }
+
+  function init() {
+    $("#tuneSong").addEventListener("change", loadSong);
+    $("#tuneKindLyrics").addEventListener("click", () => setKind("lyrics"));
+    $("#tuneKindChants").addEventListener("click", () => setKind("chants"));
+    $("#btnTunePlay").addEventListener("click", toggle);
+    $("#btnTuneApplyTaps").addEventListener("click", applyTaps);
+    $("#btnTuneClearTaps").addEventListener("click", () => { taps = {}; render(); });
+    $("#btnTuneCopy").addEventListener("click", copyCode);
+    $("#btnTuneRevert").addEventListener("click", revert);
+    $("#btnTuneHome").addEventListener("click", () => { Audio9.stop(); goHome(); });
+
+    document.addEventListener("keydown", (e) => {
+      if (currentScreen !== "screen-tune") return;
+      if (e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+      if (e.key === " ")          { e.preventDefault(); tap(); }
+      if (e.key === "ArrowUp")    { e.preventDefault(); sel = Math.max(0, sel - 1); render(); }
+      if (e.key === "ArrowDown")  { e.preventDefault(); sel = Math.min(rows.length - 1, sel + 1); render(); }
+      if (e.key === "ArrowLeft")  { e.preventDefault(); nudge(-0.05); }
+      if (e.key === "ArrowRight") { e.preventDefault(); nudge(0.05); }
+      if (e.key === "Enter")      { e.preventDefault(); preview(); }
+      if (e.key === "Escape")     { e.preventDefault(); Audio9.pause(); }
+    });
+  }
+
+  return { init, open };
 })();
 
 /* ======================= 5-a. 결과 공유 =======================
@@ -3318,6 +3627,16 @@ function init() {
   Share.init();
   Lyrics.renderSongList();
   Chant.renderSongList();
+
+  /* ---- 싱크 조정 (나 전용) ----
+     주소 뒤에 #tune 을 붙이면 열립니다. features.js 의 devTune 을 켜면
+     시작 화면 아래에도 링크가 생깁니다. */
+  Tune.init();
+  if (FEATURES && FEATURES.devTune) $("#homeTuneLink").hidden = false;
+  $("#btnOpenTune").addEventListener("click", () => Tune.open());
+  const openTuneIfHash = () => { if (location.hash === "#tune") Tune.open(); };
+  window.addEventListener("hashchange", openTuneIfHash);
+  openTuneIfHash();
 
   // ---- 응원법 모드 ----
   $("#btnModeChant").addEventListener("click", () => showScreen("screen-chant-select"));

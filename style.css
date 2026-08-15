@@ -1555,6 +1555,121 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
   resize: vertical;
 }
 
+/* ---------- 12. 싱크 조정 (나 전용) ---------- */
+.tune-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.tune-clock {
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  min-width: 72px;
+  text-align: right;
+}
+.tune-keys {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  line-height: 2;
+  color: var(--muted);
+}
+.tune-keys kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  margin: 0 2px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background-color: var(--surface);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+.tune-tapbox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-l);
+  font-size: 13.5px;
+  color: var(--text-soft);
+}
+.tune-tapbox > span:first-child { flex: 1 1 260px; line-height: 1.6; }
+.tune-tapbox b { color: var(--text); }
+
+.tune-rows {
+  max-height: 52vh;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background-color: var(--surface);
+}
+.tune-row2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 14px;
+}
+.tune-row2:last-child { border-bottom: 0; }
+.tune-row2:hover { background-color: var(--bg); }
+.tune-row2.is-sel { background-color: var(--accent-soft); }
+.tune-row2.is-tapped .tune-row2__t { color: var(--accent); }
+
+.tune-row2__t {
+  flex: 0 0 58px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.tune-row2__x {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tune-row2__d {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.tune-row2__d.is-late { color: var(--wrong); }
+.tune-row2__d.is-early { color: var(--accent); }
+
+.tune-row2__acts { flex: 0 0 auto; display: flex; gap: 4px; }
+.tune-row2__acts .mini {
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background-color: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.tune-row2__acts .mini:hover { border-color: var(--accent); color: var(--accent); }
+.tune-row2__acts .mini--play { color: var(--accent); }
+
+@media (max-width: 560px) {
+  .tune-row2 { flex-wrap: wrap; gap: 8px; }
+  .tune-row2__x { flex: 1 1 100%; order: 3; }
+}
+
 /* ---- 마이크 고르기 ---- */
 .mic-pick {
   display: flex;

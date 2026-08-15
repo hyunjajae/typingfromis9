@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 6;
+      var VER = 7;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -130,6 +130,11 @@
       <!-- 랭킹이 켜져 있을 때만 보입니다 -->
       <div class="home-extra" id="homeRanking" hidden>
         <button class="ghost-btn" id="btnOpenRanking" type="button">🏆 랭킹 보기</button>
+      </div>
+
+      <!-- 나 전용 : data/features.js 의 devTune 을 켜면 보입니다 -->
+      <div class="home-extra" id="homeTuneLink" hidden>
+        <button class="ghost-btn ghost-btn--sm" id="btnOpenTune" type="button">🎚 싱크 조정 (나 전용)</button>
       </div>
 
       <p class="foot-note">
@@ -428,6 +433,13 @@
 
       <p class="how-note" id="howNote" hidden></p>
 
+      <!-- 마이크 없이 타이밍만 확인해볼 때 (나 전용) -->
+      <p class="how-note" id="howKeyLine" hidden>
+        <button class="ghost-btn ghost-btn--sm" id="btnHowKey" type="button">
+          ⌨ 마이크 없이 스페이스로 박자만 맞춰보기
+        </button>
+      </p>
+
       <div class="btn-row btn-row--lg">
         <button class="ghost-btn" id="btnChantVideo1" type="button" hidden>▶ 응원법 영상 보기</button>
         <button class="ghost-btn" id="btnBackToChantSongs" type="button">곡 다시 고르기</button>
@@ -691,6 +703,53 @@
       </div>
     </section>
 
+    <!-- ============ 화면 12 : 싱크 조정 (나 전용) ============
+         따로 만든 도구에서 맞추고 오면 싱크가 어긋나는 문제가 있었습니다.
+         도구와 게임이 오디오를 다루는 방식이 달라서입니다.
+         그래서 게임이 실제로 쓰는 그 재생기로, 게임 안에서 맞춥니다. -->
+    <section class="screen" id="screen-tune">
+      <div class="page-head">
+        <p class="page-head__eyebrow">나 전용</p>
+        <h2 class="page-head__title">싱크 조정</h2>
+        <p class="page-head__sub">
+          게임이 실제로 재생하는 그대로 맞춥니다. 여기서 고친 값은 <b>바로 게임에 적용</b>되니
+          그 자리에서 확인해볼 수 있어요. (영구 저장은 아래 코드를 <code>songs.js</code> 에 붙여넣기)
+        </p>
+      </div>
+
+      <div class="tune-bar">
+        <select class="rank-song" id="tuneSong"></select>
+        <button class="rank-tab is-on" id="tuneKindLyrics" type="button">가사</button>
+        <button class="rank-tab" id="tuneKindChants" type="button">응원법</button>
+        <span class="spacer"></span>
+        <button class="ghost-btn ghost-btn--sm" id="btnTunePlay" type="button">▶ 재생</button>
+        <b class="tune-clock" id="tuneClock">0:00.0</b>
+      </div>
+
+      <p class="tune-keys">
+        <kbd>Space</kbd> 지금 이 줄 찍기 ·
+        <kbd>↑</kbd><kbd>↓</kbd> 줄 고르기 ·
+        <kbd>←</kbd><kbd>→</kbd> −0.05 / +0.05 ·
+        <kbd>Enter</kbd> 그 줄 들어보기 ·
+        <kbd>Esc</kbd> 정지
+      </p>
+
+      <div class="tune-tapbox" id="tuneTapBox" hidden>
+        <span id="tuneTapMsg"></span>
+        <button class="solid-btn" id="btnTuneApplyTaps" type="button">찍은 대로 맞추기</button>
+        <button class="ghost-btn ghost-btn--sm" id="btnTuneClearTaps" type="button">찍은 것 지우기</button>
+      </div>
+
+      <div class="tune-rows" id="tuneRows"></div>
+
+      <div class="btn-row btn-row--lg">
+        <button class="solid-btn" id="btnTuneCopy" type="button">코드 복사</button>
+        <button class="ghost-btn" id="btnTuneRevert" type="button">처음 값으로</button>
+        <button class="ghost-btn" id="btnTuneHome" type="button">시작 화면</button>
+      </div>
+      <textarea class="tune-out" id="tuneOut" readonly hidden></textarea>
+    </section>
+
     <!-- ============ 화면 8 : 랭킹 ============ -->
     <section class="screen" id="screen-ranking">
       <div class="page-head">
@@ -770,7 +829,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 6;
+      var VER = 7;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
