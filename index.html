@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 7;
+      var VER = 8;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -729,10 +729,29 @@
       <p class="tune-keys">
         <kbd>Space</kbd> 지금 이 줄 찍기 ·
         <kbd>↑</kbd><kbd>↓</kbd> 줄 고르기 ·
-        <kbd>←</kbd><kbd>→</kbd> −0.05 / +0.05 ·
+        <kbd>←</kbd><kbd>→</kbd> 그 줄 −0.05 / +0.05 ·
+        <kbd>Shift</kbd>+<kbd>←</kbd><kbd>→</kbd> 전체 밀기 ·
         <kbd>Enter</kbd> 그 줄 들어보기 ·
         <kbd>Esc</kbd> 정지
       </p>
+
+      <!-- 전체를 한꺼번에 밀기 : 곡 전체가 통째로 어긋났을 때 -->
+      <div class="tune-shift">
+        <span class="tune-shift__label">전체 밀기</span>
+        <span class="tune-shift__btns" id="tuneShiftBtns">
+          <button class="mini" data-d="-0.5" type="button">−0.5</button>
+          <button class="mini" data-d="-0.1" type="button">−0.1</button>
+          <button class="mini" data-d="-0.05" type="button">−0.05</button>
+          <button class="mini" data-d="0.05" type="button">+0.05</button>
+          <button class="mini" data-d="0.1" type="button">+0.1</button>
+          <button class="mini" data-d="0.5" type="button">+0.5</button>
+        </span>
+        <b class="tune-shift__val" id="tuneShiftVal">0.00초</b>
+        <label class="tune-shift__from">
+          <input type="checkbox" id="tuneShiftFrom" />
+          <span>고른 줄부터만</span>
+        </label>
+      </div>
 
       <div class="tune-tapbox" id="tuneTapBox" hidden>
         <span id="tuneTapMsg"></span>
@@ -829,7 +848,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 7;
+      var VER = 8;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";

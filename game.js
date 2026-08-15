@@ -2704,6 +2704,7 @@ const Tune = (() => {
   let orig = [];                // 처음 값 (되돌리기용)
   let sel = 0;                  // 고른 줄
   let taps = {};                // { 줄번호: 찍은 시각 }
+  let bulk = 0;                 // 전체 밀기로 옮긴 누적 값 (표시용)
   let raf = null;
 
   const listOf = () => (song ? song[kind] || [] : []);
@@ -2789,6 +2790,7 @@ const Tune = (() => {
 
     const cur = box.children[sel];
     if (cur) cur.scrollIntoView({ block: "nearest" });
+    paintShift();
     paintTapBox();
   }
 
@@ -2796,6 +2798,20 @@ const Tune = (() => {
   function nudge(d) {
     if (!rows[sel]) return;
     rows[sel].time = Math.max(0, Math.round((rows[sel].time + d) * 100) / 100);
+    render();
+  }
+
+  /* ---- 전체 밀기 ----
+     곡이 통째로 어긋났을 때 한 줄씩 옮기는 건 말이 안 되니까요.
+     "고른 줄부터만" 을 켜면 그 줄 아래로만 옮깁니다.
+     (노래 중간부터 조금씩 밀리는 경우에 씁니다) */
+  function shiftAll(d) {
+    if (rows.length === 0) return;
+    const from = $("#tuneShiftFrom").checked ? sel : 0;
+    for (let i = from; i < rows.length; i++) {
+      rows[i].time = Math.max(0, Math.round((rows[i].time + d) * 100) / 100);
+    }
+    bulk = Math.round((bulk + d) * 100) / 100;
     render();
   }
 
@@ -2824,6 +2840,13 @@ const Tune = (() => {
     taps[best] = now;
     sel = best;
     render();
+  }
+
+  function paintShift() {
+    $("#tuneShiftVal").textContent =
+      (bulk > 0 ? "+" : bulk < 0 ? "−" : "") + Math.abs(bulk).toFixed(2) + "초";
+    $("#tuneShiftVal").className = "tune-shift__val" +
+      (bulk > 0 ? " is-late" : bulk < 0 ? " is-early" : "");
   }
 
   const median = (a) => {
@@ -2888,6 +2911,7 @@ const Tune = (() => {
   function revert() {
     rows.forEach((r, i) => { if (orig[i]) r.time = orig[i].time; });
     taps = {};
+    bulk = 0;
     render();
   }
 
@@ -2907,6 +2931,7 @@ const Tune = (() => {
     orig = rows.map((r) => ({ time: r.time, text: r.text }));
     sel = 0;
     taps = {};
+    bulk = 0;
     render();
   }
 
@@ -2924,6 +2949,10 @@ const Tune = (() => {
     $("#btnTunePlay").addEventListener("click", toggle);
     $("#btnTuneApplyTaps").addEventListener("click", applyTaps);
     $("#btnTuneClearTaps").addEventListener("click", () => { taps = {}; render(); });
+    $("#tuneShiftBtns").addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-d]");
+      if (b) shiftAll(parseFloat(b.dataset.d));
+    });
     $("#btnTuneCopy").addEventListener("click", copyCode);
     $("#btnTuneRevert").addEventListener("click", revert);
     $("#btnTuneHome").addEventListener("click", () => { Audio9.stop(); goHome(); });
@@ -2934,8 +2963,8 @@ const Tune = (() => {
       if (e.key === " ")          { e.preventDefault(); tap(); }
       if (e.key === "ArrowUp")    { e.preventDefault(); sel = Math.max(0, sel - 1); render(); }
       if (e.key === "ArrowDown")  { e.preventDefault(); sel = Math.min(rows.length - 1, sel + 1); render(); }
-      if (e.key === "ArrowLeft")  { e.preventDefault(); nudge(-0.05); }
-      if (e.key === "ArrowRight") { e.preventDefault(); nudge(0.05); }
+      if (e.key === "ArrowLeft")  { e.preventDefault(); e.shiftKey ? shiftAll(-0.05) : nudge(-0.05); }
+      if (e.key === "ArrowRight") { e.preventDefault(); e.shiftKey ? shiftAll(0.05) : nudge(0.05); }
       if (e.key === "Enter")      { e.preventDefault(); preview(); }
       if (e.key === "Escape")     { e.preventDefault(); Audio9.pause(); }
     });

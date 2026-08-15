@@ -1591,6 +1591,53 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
   color: var(--text-soft);
 }
 
+/* 전체 밀기 */
+.tune-shift {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background-color: var(--surface);
+}
+.tune-shift__label { font-size: 13.5px; font-weight: 700; color: var(--text-soft); }
+.tune-shift__btns { display: flex; gap: 5px; flex-wrap: wrap; }
+.tune-shift__btns .mini {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background-color: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 6px 11px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.tune-shift__btns .mini:hover { border-color: var(--accent); color: var(--accent); }
+.tune-shift__val {
+  min-width: 62px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.tune-shift__val.is-late { color: var(--wrong); }
+.tune-shift__val.is-early { color: var(--accent); }
+.tune-shift__from {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.tune-shift__from input { accent-color: var(--accent); cursor: pointer; }
+
 .tune-tapbox {
   display: flex;
   align-items: center;
