@@ -18,27 +18,42 @@ const Voice = (() => {
   /* ---- 조정할 수 있는 값들 ----
      실제로 해보고 빠듯하거나 널널하면 이 숫자들을 고치면 됩니다. */
   const CFG = {
-    // 환경 소음보다 이만큼은 커야 "외쳤다" 로 봅니다.
-    // 보통 말소리가 배경 소음보다 10~15dB 크고, 외치는 소리는 20dB 이상 큽니다.
+    // 환경 소음보다 이만큼 크면 확실히 "외쳤다" 로 봅니다.
+    // 단, 마이크가 약해서 이만큼 못 올라가는 경우가 많습니다. 아래 참고.
     MARGIN_DB: 12,
 
-    // 아무리 조용한 방이어도 이보다 작은 소리는 인정하지 않습니다.
-    // 없으면 아주 조용한 방에서 기준선이 너무 낮아져 숨소리에도 반응합니다.
-    ABS_FLOOR_DB: -42,
+    // 마이크가 약할 때 쓰는 값들.
+    //
+    // 노트북 내장 마이크는 자동 볼륨 조절(AGC)에 기대도록 만들어져 있어서,
+    // 그걸 끄면 소리를 질러도 외장 마이크보다 20dB 넘게 작게 들어옵니다.
+    // 그래서 "몇 dB 이상" 같은 절대 기준을 쓰면 내장 마이크는 아무리 질러도
+    // 기준을 못 넘습니다. (실제로 이것 때문에 인식이 아예 안 됐습니다)
+    //
+    // 그래서 기준을 절대값이 아니라 "이 사람이 실제로 낸 소리" 기준으로 잡습니다.
+    // 조용할 때와 지를 때의 차이를 재서, 그 사이 이만큼 지점을 기준으로 씁니다.
+    LOUD_RATIO: 0.45,
+    MIN_MARGIN_DB: 4,      // 그래도 소음보다는 이만큼은 커야 합니다
 
-    // 음량이 튀지 않게 다듬는 정도 (작을수록 부드럽고 반응이 느립니다)
-    SMOOTH: 0.25,
+    // 신호가 아예 죽은 게 아닌지만 보는 아주 낮은 하한
+    ABS_FLOOR_DB: -75,
+
+    /* 음량 다듬기 — 올라갈 때와 내려갈 때를 다르게 합니다.
+       똑같이 두면 "소리를 질렀는데 한 박자 늦게 반응하는" 느낌이 납니다.
+       올라갈 때는 거의 바로 따라가고(ATTACK), 내려갈 때만 천천히 빠집니다. */
+    ATTACK: 0.65,
+    RELEASE: 0.12,
+
+    /* 한 번 소리가 올라가면 이 시간 동안은 계속 내는 것으로 봅니다.
+       "이·새·롬" 처럼 또박또박 외치면 글자 사이에 순간적으로 소리가 끊기는데,
+       그걸 매번 "멈췄다" 로 보면 글자가 안 채워집니다. */
+    HOLD_MS: 180,
 
     // 환경 소음을 재는 시간
     CALIB_MS: 2000,
 
     // 배경음이 마이크로 들어오는 만큼 기준을 올려줍니다.
     // 배경음 볼륨 100% 일 때 이만큼 올리고, 볼륨에 비례해 줄입니다.
-    BGM_COMP_DB: 10,
-
-    // 게이지에 표시할 음량 범위
-    VIEW_MIN_DB: -60,
-    VIEW_MAX_DB: -6
+    BGM_COMP_DB: 10
   };
 
   let audioCtx = null;
@@ -47,6 +62,8 @@ const Voice = (() => {
   let buf = null;
   let level = -100;          // 다듬어진 현재 음량(dB)
   let noiseFloor = -60;      // 측정된 환경 소음
+  let peak = -100;           // 이 사람이 실제로 낸 제일 큰 소리
+  let loudUntil = 0;         // 이 시각까지는 계속 내는 것으로 봄
   let userAdjust = 0;        // 사용자가 슬라이더로 더하거나 뺀 값(dB)
   let opened = false;
   let curId = "";            // 지금 쓰고 있는 마이크
@@ -153,6 +170,8 @@ const Voice = (() => {
     stream = null; audioCtx = null; analyser = null; buf = null;
     opened = false;
     level = -100;
+    peak = -100;
+    loudUntil = 0;
   }
 
   /* ---- 지금 이 순간의 음량(dB) ----
@@ -173,8 +192,14 @@ const Voice = (() => {
     // 탭을 옮겨다니다 보면 소리 장치가 잠들어 있을 때가 있습니다
     if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
     const db = readDb();
-    // 부드럽게 따라가게 합니다 (갑자기 튀는 값 억제)
-    level = level + (db - level) * CFG.SMOOTH;
+
+    // 커질 때는 빠르게, 작아질 때는 천천히.
+    // 그래야 지른 순간 바로 반응하면서도 값이 덜덜 떨리지 않습니다.
+    const k = db > level ? CFG.ATTACK : CFG.RELEASE;
+    level = level + (db - level) * k;
+
+    // 이 사람이 낼 수 있는 최대치를 계속 배웁니다 (기준을 여기 맞춥니다)
+    if (level > peak) peak = level;
     return level;
   }
 
@@ -198,28 +223,67 @@ const Voice = (() => {
         clearInterval(timer);
         samples.sort((a, b) => a - b);
         const p90 = samples[Math.floor(samples.length * 0.9)] || -60;
-        noiseFloor = Math.max(-80, Math.min(-20, p90));
+        // 약한 마이크는 소음이 -85dB 근처까지 내려갑니다. 하한을 넉넉히 둡니다.
+        noiseFloor = Math.max(-90, Math.min(-20, p90));
         level = noiseFloor;
+        peak = noiseFloor;          // 목소리 크기는 이제부터 다시 배웁니다
+        loudUntil = 0;
         done(noiseFloor);
       }, 25);
     });
   }
 
-  /* ---- 이 정도는 넘어야 "외쳤다" 로 보는 기준 ---- */
+  /* ---- 이 정도는 넘어야 "외쳤다" 로 보는 기준 ----
+
+     기본은 "환경 소음 + 12dB" 입니다. 외장 마이크는 이걸 쉽게 넘습니다.
+
+     그런데 노트북 내장 마이크는 소리를 질러도 소음보다 8~10dB 밖에 안 커집니다.
+     그 상태에서 12dB 를 요구하면 아무리 질러도 인식이 안 됩니다.
+     그래서 이 사람이 실제로 낸 제일 큰 소리(peak)를 보고,
+     소음과 그 사이의 중간쯤을 기준으로 낮춰 잡습니다.
+
+     기준이 기본값(+12dB)보다 높아지는 일은 없습니다. 쉬워지기만 합니다. */
   function threshold() {
+    let margin = CFG.MARGIN_DB;
+
+    const gap = peak - noiseFloor;
+    if (gap > 3) {
+      margin = Math.min(margin, Math.max(CFG.MIN_MARGIN_DB, gap * CFG.LOUD_RATIO));
+    }
+
     // 배경음이 클수록 마이크에도 그만큼 들어오므로 기준을 같이 올립니다
     const bgm = (typeof Audio9 !== "undefined" && !Audio9.paused)
       ? CFG.BGM_COMP_DB * Audio9.volume
       : 0;
-    const fromNoise = noiseFloor + CFG.MARGIN_DB + bgm;
-    return Math.max(fromNoise, CFG.ABS_FLOOR_DB) + userAdjust;
+
+    return Math.max(noiseFloor + margin + bgm, CFG.ABS_FLOOR_DB) + userAdjust;
   }
 
-  const isLoud = () => opened && level > threshold();
+  /* ---- 지금 소리를 내고 있는가 ----
+     한 번 올라가면 잠깐(HOLD_MS)은 계속 내는 것으로 봅니다.
+     또박또박 외칠 때 글자 사이에 나는 짧은 끊김을 메꾸기 위해서입니다. */
+  function isLoud() {
+    if (!opened) return false;
+    if (level > threshold()) {
+      loudUntil = performance.now() + CFG.HOLD_MS;
+      return true;
+    }
+    return performance.now() < loudUntil;
+  }
 
-  /* ---- 게이지 그리기 ---- */
+  /* ---- 게이지 그리기 ----
+     보여줄 범위도 마이크에 맞춥니다.
+     고정 범위(-60~-6dB)를 쓰면, 약한 마이크로는 소리를 질러도
+     막대가 눈곱만큼만 움직여서 "안 되는구나" 싶어집니다. */
+  function viewRange() {
+    const lo = noiseFloor - 6;
+    const hi = Math.max(threshold() + 10, peak + 3, lo + 14);
+    return [lo, hi];
+  }
+
   const toPct = (db) => {
-    const p = (db - CFG.VIEW_MIN_DB) / (CFG.VIEW_MAX_DB - CFG.VIEW_MIN_DB);
+    const [lo, hi] = viewRange();
+    const p = (db - lo) / Math.max(1, hi - lo);
     return Math.max(0, Math.min(1, p)) * 100;
   };
 
@@ -256,6 +320,7 @@ const Voice = (() => {
     isSilent, deviceLabel, readDb, listMics, currentId,
     get level() { return level; },
     get noiseFloor() { return noiseFloor; },
+    get peak() { return peak; },
     get opened() { return opened; }
   };
 })();

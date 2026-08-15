@@ -1543,6 +1543,11 @@ const Chant = (() => {
      그래서 음성일 때만 판정 구간 전체를 이만큼 뒤로 밉니다. */
   const VOICE_OFFSET = 0.3;
 
+  /* 한 글자를 외치는 데 걸린다고 보는 시간.
+     실제로 외쳐보면 이보다 빨리 끝나는데 글자가 남는 일이 있어서 줄였습니다.
+     (사람이 "프로미스나인" 을 외치는 데 1초가 안 걸립니다) */
+  const CHAR_COST = 0.11;
+
   let song = null;
   let list = [];           // 이 곡의 응원 구간들
   let idx = 0;             // 지금 노리고 있는 구간
@@ -1569,7 +1574,7 @@ const Chant = (() => {
      띄어쓰기는 실제로는 숨 쉬는 자리라 세지 않습니다. */
   function needOf(i) {
     const chars = list[i].text.replace(/\s+/g, "").length;
-    return Math.max(0.3, chars * 0.15);
+    return Math.max(0.28, chars * CHAR_COST);
   }
 
   /* ---- 응원 시각이 지난 뒤 몇 초까지 봐줄지 ----
@@ -1860,8 +1865,11 @@ const Chant = (() => {
         (Voice.deviceLabel() ? "<br />지금 쓰는 장치: " + Voice.deviceLabel() : "");
       el.className = "mic-read is-ng";
     } else {
-      el.textContent = "지금 " + Voice.level.toFixed(0) + " dB · 넘겨야 하는 값 " +
-        Voice.threshold().toFixed(0) + " dB";
+      // 조용할 때 / 지금 / 넘어야 하는 값 — 셋을 같이 보여줘야 감이 옵니다
+      el.textContent =
+        "조용할 때 " + Voice.noiseFloor.toFixed(0) +
+        " · 지금 " + Voice.level.toFixed(0) +
+        " · 넘어야 하는 값 " + Voice.threshold().toFixed(0) + " dB";
       el.className = "mic-read";
     }
     testRaf = requestAnimationFrame(testLoop);
