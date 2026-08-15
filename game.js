@@ -337,7 +337,9 @@ function showScreen(id) {
   const playing = id === "screen-lyrics" || id === "screen-quiz" || id === "screen-chant";
   const narrow = window.matchMedia("(max-width: 760px)").matches;
   document.body.classList.toggle("is-playing", playing && !narrow);
-  $("#hud").hidden = !playing;
+  // 응원법은 정확도·타수·시간을 쓰지 않습니다.
+  // (그 화면에서는 갱신되지 않는 옛날 숫자가 그대로 떠 있었습니다)
+  $("#hud").hidden = !playing || id === "screen-chant";
 
   // 시작 화면에서는 뒤로 가기를 숨깁니다
   $("#btnBack").hidden = !BACK_TO[id];
@@ -1543,10 +1545,18 @@ const Chant = (() => {
      그래서 음성일 때만 판정 구간 전체를 이만큼 뒤로 밉니다. */
   const VOICE_OFFSET = 0.3;
 
-  /* 한 글자를 외치는 데 걸린다고 보는 시간.
-     실제로 외쳐보면 이보다 빨리 끝나는데 글자가 남는 일이 있어서 줄였습니다.
-     (사람이 "프로미스나인" 을 외치는 데 1초가 안 걸립니다) */
-  const CHAR_COST = 0.11;
+  /* ---- 이 응원을 외치는 데 얼마나 걸리는가 ----
+
+     글자 수로 세면 안 됩니다. 영어는 글자 수에 비해 훨씬 빨리 지나갑니다.
+     "So perfect" 는 9글자지만 세 번에 끝나고,
+     "프로미스나인" 은 6글자에 여섯 번입니다.
+     그래서 글자가 아니라 <음절> 을 셉니다.
+
+     늘여 부르는 자리(캬~, 와!!!)는 음절이 하나여도 오래 끌어야 하므로
+     ~ 와 ! 를 따로 세서 시간을 더해줍니다. */
+  const SYLLABLE_COST = 0.12;   // 한 음절
+  const TILDE_COST = 0.3;       // ~ 하나당 (늘여 부르는 표시)
+  const BANG_COST = 0.16;       // 두 번째부터의 ! 하나당 (와!!! 처럼 지르는 자리)
 
   let song = null;
   let list = [];           // 이 곡의 응원 구간들
@@ -1572,9 +1582,24 @@ const Chant = (() => {
      (DM 처럼 2초 간격으로 붙어 있는 구간이 있어서 꼭 필요합니다) */
   /* ---- 이 구간을 외치는 데 걸리는 시간 ----
      띄어쓰기는 실제로는 숨 쉬는 자리라 세지 않습니다. */
+  /** 음절 수 세기 — 한글은 한 글자가 한 음절, 영어는 모음 덩어리 하나가 한 음절 */
+  function beatsOf(text) {
+    let n = (text.match(/[가-힣]/g) || []).length;
+    const latin = text.replace(/[가-힣]/g, " ");
+    n += (latin.match(/[aeiouyAEIOUY]+/g) || []).length;
+    n += (latin.match(/[0-9]/g) || []).length;
+    return Math.max(1, n);
+  }
+
   function needOf(i) {
-    const chars = list[i].text.replace(/\s+/g, "").length;
-    return Math.max(0.28, chars * CHAR_COST);
+    // 곡 데이터에 dur 를 적어두면 그 값을 그대로 씁니다 (자동 계산이 안 맞는 자리용)
+    if (typeof list[i].dur === "number") return Math.max(0.2, list[i].dur);
+
+    const text = list[i].text;
+    const tilde = (text.match(/[~〜ー]/g) || []).length;
+    const bang = Math.max(0, (text.match(/!/g) || []).length - 1);
+    return Math.max(0.3,
+      beatsOf(text) * SYLLABLE_COST + tilde * TILDE_COST + bang * BANG_COST);
   }
 
   /* ---- 응원 시각이 지난 뒤 몇 초까지 봐줄지 ----
@@ -1637,6 +1662,8 @@ const Chant = (() => {
       input.hidden = false;
       input.disabled = false;
       $("#chantGauge").hidden = true;
+      elLine.classList.remove("chant-line--voice");
+      $("#chantStage").classList.remove("chant-stage--voice");
       $("#chantHint").textContent = "노래는 멈추지 않습니다 · 구간이 뜨면 시간 안에 정확히 치세요";
       input.focus();
     },
@@ -1670,7 +1697,23 @@ const Chant = (() => {
       input.hidden = true;
       input.disabled = true;
       $("#chantGauge").hidden = false;
+      // 글자 칸 대신 한 문장으로 보여줍니다 (아래 setText 설명 참고)
+      elLine.classList.add("chant-line--voice");
+      // 외칠 때는 가사보다 응원이 주인공입니다. 가사는 뒤로 물립니다.
+      $("#chantStage").classList.add("chant-stage--voice");
       $("#chantHint").textContent = "이어폰을 끼고 하세요 · 구간이 뜨면 박자에 맞춰 크게 외치세요";
+    },
+
+    /* ---- 글자 칸이 아니라 한 문장으로 ----
+       타이핑은 "어느 글자를 칠 차례인가" 가 중요해서 칸을 나눠 보여줍니다.
+       그런데 외칠 때는 칸이 오히려 방해가 됩니다. 눈은 자유로운데
+       띄엄띄엄한 칸을 한 문장으로 읽어내야 하니 눈에 안 들어옵니다.
+
+       그래서 통 문장으로 두고, 노래방처럼 왼쪽부터 색이 차오르게 합니다.
+       (가사 줄에 이미 쓰고 있는 방식과 같습니다) */
+    setText(text, pct) {
+      if (elLine.textContent !== text) elLine.textContent = text;
+      elLine.style.setProperty("--sung", pct.toFixed(1) + "%");
     },
     onLiveStart(c) {
       // 창이 유난히 좁은 구간(응원이 촘촘히 붙은 곳)에서는 목표를 같이 줄입니다.
@@ -1679,6 +1722,7 @@ const Chant = (() => {
       this.loud = 0;
       this.shown = -1;
       this.lastT = 0;
+      this.setText(c.text, 0);
     },
     onFrame(now, judge) {
       Voice.update();
@@ -1693,13 +1737,8 @@ const Chant = (() => {
       if (!judge || !live) return;
       if (Voice.isLoud()) this.loud += dt;
 
-      const text = list[idx].text;
       const p = Math.min(1, this.loud / this.need);
-      const n = Math.round(p * text.length);
-      if (n !== this.shown) {
-        this.shown = n;
-        renderTypingCells(elLine, text, text.slice(0, n), false);
-      }
+      this.setText(list[idx].text, p * 100);
       if (p >= 1) hit();
     },
     onLiveEnd() { this.lastT = 0; },
@@ -1784,6 +1823,9 @@ const Chant = (() => {
   /** 곡을 골랐을 때 : 입력 방식부터 물어봅니다 */
   function choose(s) {
     song = s;
+    // 준비 화면에서도 구간 정보가 필요합니다 (소음 잴 때 그 대목을 틀어주려고)
+    list = s.chants.slice().sort((a, b) => a.time - b.time);
+
     // 음성 모드를 아직 안 열었으면 예전처럼 바로 타이핑으로 갑니다
     if (!feature("chantVoice")) { start(s, "typing"); return; }
 
@@ -1918,6 +1960,7 @@ const Chant = (() => {
     $("#calibFill").style.width = "0%";
     $("#micTest").hidden = true;
     $("#micPickBox").hidden = true;
+    $("#micAecBox").hidden = true;
     $("#readyError").hidden = true;
     $("#btnChantStart").disabled = true;
     $("#micAdjust").value = String(Voice.getAdjust());
@@ -1938,12 +1981,20 @@ const Chant = (() => {
     stepMark("#stepMic", "#micMark", "is-done");
     $("#micDesc").textContent = "마이크를 쓸 수 있습니다.";
     await fillMicList();
+    $("#micAecBox").hidden = false;
 
     // 2) 방이 얼마나 조용한지 재기
     await measureAndTest();
   }
 
-  /** 소음 재기 → 소리 테스트 (마이크를 바꾸면 이 부분만 다시 합니다) */
+  /* ---- 소음 재기 → 소리 테스트 ----
+     잴 때 노래를 같이 틉니다.
+
+     노래가 마이크로 얼마나 새어 들어오는지까지 같이 재두려는 겁니다.
+     예전에는 "노래가 나오면 기준을 얼마쯤 올린다" 고 어림잡았는데,
+     그래서 잴 때(노래 없음)와 실제로 할 때(노래 나옴)의 민감도가 달랐습니다.
+     이어폰을 껴서 노래가 아예 안 들어오는데도 그랬습니다.
+     이제 재는 상황과 하는 상황이 같습니다. */
   async function measureAndTest() {
     stepMark("#stepCalib", "#calibMark", null);
     $("#calibFill").style.width = "0%";
@@ -1951,9 +2002,16 @@ const Chant = (() => {
     $("#btnChantStart").disabled = true;
     stopTest();
 
+    // 실제로 연습할 때와 같은 조건을 만듭니다 (첫 응원 근처를 틀어줍니다)
+    const at = list.length ? Math.max(0, list[0].time - 1) : 0;
+    Audio9.load(song.audio, () => {});
+    Audio9.play(at);
+
     await Voice.calibrate((p) => { $("#calibFill").style.width = (p * 100).toFixed(0) + "%"; });
+
+    Audio9.stop();
     stepMark("#stepCalib", "#calibMark", "is-done");
-    $("#calibDesc").textContent = "다 쟀습니다. 이 방 기준으로 맞췄어요.";
+    $("#calibDesc").textContent = "다 쟀습니다. 노래가 나올 때 기준으로 맞췄어요.";
 
     $("#micTest").hidden = false;
     $("#btnChantStart").disabled = false;
@@ -1981,11 +2039,11 @@ const Chant = (() => {
   }
 
   async function switchMic() {
-    const id = $("#micPick").value;
+    const id = $("#micPickBox").hidden ? "" : $("#micPick").value;
     stopTest();
     Voice.close();
     try {
-      await Voice.open(id);
+      await Voice.open(id, $("#micNoAec").checked);
     } catch (e) {
       stepMark("#stepMic", "#micMark", "is-ng");
       $("#readyError").innerHTML = micErrorHtml(e);
@@ -2072,7 +2130,7 @@ const Chant = (() => {
     $("#chantLive").hidden = !on;
     $("#chantIdle").hidden = on;
     if (on) {
-      renderTypingCells(elLine, list[idx].text, "", false);
+      if (mode === "typing") renderTypingCells(elLine, list[idx].text, "", false);
       method.onLiveStart(list[idx]);
     } else {
       method.onLiveEnd();
@@ -2219,8 +2277,12 @@ const Chant = (() => {
       bar.style.transform = "scaleX(" + left + ")";
       bar.classList.toggle("is-hurry", left < 0.3);
     } else {
+      // 기다리는 동안 : 다음에 외칠 말을 미리 보여줍니다
       const wait = Math.max(0, showAtOf(idx) - now);
-      $("#chantCountdown").textContent = wait < 10 ? wait.toFixed(1) : Math.round(wait);
+      $("#chantCountdown").textContent = (wait < 10 ? wait.toFixed(1) : Math.round(wait)) + "초";
+      $("#chantNextText").textContent = list[idx].text;
+      // 1.5초 안쪽으로 들어오면 또렷하게 (준비 신호)
+      $("#chantIdle").classList.toggle("is-soon", wait < 1.5);
     }
   }
 
@@ -2359,6 +2421,7 @@ const Chant = (() => {
   $("#btnChantStart").addEventListener("click", () => start(song, "voice"));
   $("#btnReadyToTyping").addEventListener("click", () => { release(); start(song, "typing"); });
   $("#micPick").addEventListener("change", switchMic);
+  $("#micNoAec").addEventListener("change", switchMic);
   $("#micAdjust").addEventListener("input", () => {
     Voice.setAdjust(Number($("#micAdjust").value));
     paintAdjustLabel();

@@ -1020,23 +1020,52 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
   gap: 10px;
 }
 
-/* 구간이 오기 전 */
-.chant-idle { animation: rise .3s var(--ease) both; }
+/* 구간이 오기 전 —
+   예전에는 남은 시간 숫자만 크게 띄웠습니다. 그런데 외치는 사람은
+   "언제" 보다 "무엇을" 이 급합니다. 키보드를 안 보니 눈은 비어 있고요.
+   그래서 다음에 외칠 말을 크게 두고, 남은 시간은 작게 위에 붙였습니다. */
+.chant-idle {
+  width: 100%;
+  animation: rise .3s var(--ease) both;
+}
 .chant-idle__label {
-  margin: 0 0 6px;
+  margin: 0 0 10px;
   font-size: 13px;
   letter-spacing: .1em;
   color: var(--muted);
 }
 .chant-idle__count {
-  margin: 0;
-  font-size: clamp(2.6rem, 8vw, 4.2rem);
   font-weight: 800;
-  letter-spacing: -.04em;
-  color: var(--muted);
+  font-size: 15px;
+  color: var(--text-soft);
   font-variant-numeric: tabular-nums;
-  opacity: .5;
 }
+
+/* 다음에 외칠 말 — 떠 있는 응원과 같은 크기라서 자리가 안 튑니다 */
+.chant-idle__next {
+  margin: 0;
+  font-size: clamp(1.7rem, 5vw, 2.8rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  color: var(--text);
+  opacity: .6;
+  transition: opacity .25s var(--ease), transform .25s var(--ease);
+}
+/* 곧 나올 때가 되면 또렷해집니다 (준비하라는 신호) */
+.chant-idle.is-soon .chant-idle__next {
+  opacity: 1;
+  transform: scale(1.04);
+}
+.chant-idle.is-soon .chant-idle__count { color: var(--accent); }
+
+/* ---- 음성 모드에서는 응원이 주인공 ----
+   가사와 응원이 비슷한 크기·굵기로 나란히 있으면
+   외치는 사람이 둘 중 뭘 봐야 하는지 헷갈립니다.
+   가사는 "지금 어디쯤인지" 알려주는 참고용이므로 뒤로 물립니다. */
+.chant-stage--voice .chant-lyrics { opacity: .45; }
+.chant-stage--voice .chant-lyric--now { font-weight: 600; }
+.chant-stage--voice .chant-slot { min-height: 200px; }
 
 /* 구간이 떴을 때 */
 .chant-live { width: 100%; animation: rise .25s var(--ease) both; }
@@ -1065,6 +1094,26 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
   display: flex;
   flex-wrap: wrap;
   font-size: clamp(1.7rem, 5vw, 2.8rem);
+}
+
+/* 음성 모드 : 칸을 나누지 않고 통 문장으로 두고,
+   노래방처럼 왼쪽부터 색이 차오릅니다. (가사 줄과 같은 방식)
+   외치는 사람은 글자 하나하나가 아니라 문장을 읽어야 하기 때문입니다. */
+.chant-line--voice {
+  display: block;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -.02em;
+  background-image: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--sung, 0%),
+    var(--text) var(--sung, 0%),
+    var(--text) 100%
+  );
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
 }
 
 /* 판정 표시 */
@@ -1395,6 +1444,18 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
   outline: 0;
   cursor: pointer;
 }
+
+.mic-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.mic-opt input { accent-color: var(--accent); cursor: pointer; }
+.mic-opt i { font-style: normal; color: var(--muted); }
 
 /* ---- 지금 들어오는 소리 (숫자) ---- */
 .mic-read {

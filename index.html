@@ -12,9 +12,12 @@
   <!-- style.css 도 로컬에서는 캐시되지 않게 (아래 script 설명 참고) -->
   <script>
     (function () {
+      // 아래 script 의 VER 과 같은 값으로 맞춰주세요
+      var VER = 3;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
-      document.write('<link rel="stylesheet" href="style.css' + (dev ? "?t=" + Date.now() : "") + '">');
+      document.write('<link rel="stylesheet" href="style.css' +
+        (dev ? "?t=" + Date.now() : "?v=" + VER) + '">');
     })();
   </script>
   <noscript><link rel="stylesheet" href="style.css" /></noscript>
@@ -449,6 +452,11 @@
               <span>쓸 마이크</span>
               <select id="micPick"></select>
             </label>
+            <!-- 노트북 내장 마이크가 아예 반응 없을 때 -->
+            <label class="mic-opt" id="micAecBox" hidden>
+              <input type="checkbox" id="micNoAec" />
+              <span>소리가 아예 안 잡혀요 <i>(에코 제거를 끄고 다시 엽니다)</i></span>
+            </label>
           </div>
           <span class="ready-step__mark" id="micMark">…</span>
         </div>
@@ -470,7 +478,8 @@
           <div class="ready-step__body">
             <p class="ready-step__title">조용한 정도 재기</p>
             <p class="ready-step__desc" id="calibDesc">
-              2초 동안 <b>아무 말도 하지 말아 주세요.</b> 방이 얼마나 조용한지 재서 기준을 잡습니다.
+              노래를 잠깐 틀고 2초 동안 잽니다. 그동안 <b>아무 말도 하지 말아 주세요.</b><br />
+              방이 얼마나 조용한지, 노래가 마이크에 얼마나 들어오는지를 같이 봅니다.
             </p>
             <div class="calib-bar"><div class="calib-bar__fill" id="calibFill"></div></div>
           </div>
@@ -540,10 +549,12 @@
 
         <!-- ② 응원 : 높이를 고정해서 구간이 떠도 화면이 튀지 않습니다 -->
         <div class="chant-slot">
-          <!-- 구간이 아직 안 왔을 때 -->
+          <!-- 구간이 아직 안 왔을 때 : 무엇을 외칠지 미리 크게 보여줍니다 -->
           <div class="chant-idle" id="chantIdle">
-            <p class="chant-idle__label">다음 응원까지</p>
-            <p class="chant-idle__count" id="chantCountdown">–</p>
+            <p class="chant-idle__label">
+              다음 응원까지 <b class="chant-idle__count" id="chantCountdown">–</b>
+            </p>
+            <p class="chant-idle__next" id="chantNextText"></p>
           </div>
 
           <!-- 구간이 떴을 때 -->
@@ -696,9 +707,14 @@
        (GitHub Pages 에 올린 뒤에는 캐시를 그대로 써서 빠르게 열립니다) -->
   <script>
     (function () {
+      /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
+         안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
+         (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
+      var VER = 3;
+
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
-      var bust = dev ? "?t=" + Date.now() : "";
+      var bust = dev ? "?t=" + Date.now() : "?v=" + VER;
 
       ["data/features.js", "data/ranking-config.js", "data/result-art.js", "data/songs.js",
        "voice-input.js", "game.js"].forEach(function (src) {

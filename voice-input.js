@@ -49,12 +49,18 @@ const Voice = (() => {
     HOLD_MS: 180,
 
     // 환경 소음을 재는 시간
-    CALIB_MS: 2000,
-
-    // 배경음이 마이크로 들어오는 만큼 기준을 올려줍니다.
-    // 배경음 볼륨 100% 일 때 이만큼 올리고, 볼륨에 비례해 줄입니다.
-    BGM_COMP_DB: 10
+    CALIB_MS: 2000
   };
+
+  /* 배경음 보정에 대해 —
+     예전에는 "노래가 나오면 기준을 10dB 올린다" 는 식으로 어림잡았습니다.
+     그런데 이러면 소음을 잴 때(노래 없음)와 실제로 할 때(노래 나옴)의
+     기준이 달라져서, 연습에 들어가는 순간 갑자기 빡빡해집니다.
+     이어폰을 끼면 노래가 마이크로 아예 안 들어오는데도 그랬습니다.
+
+     그래서 어림잡기를 없앴습니다. 대신 소음을 잴 때 노래를 같이 틀어서,
+     실제로 마이크에 들어오는 만큼이 기준선에 자연히 포함되게 했습니다.
+     이어폰이면 0, 스피커면 들어오는 만큼. 재는 것과 하는 것이 같아집니다. */
 
   let audioCtx = null;
   let stream = null;
@@ -71,7 +77,7 @@ const Voice = (() => {
   /* ---- 마이크 열기 ----
      반드시 사용자가 버튼을 누른 흐름 안에서 불러야 합니다.
      (iOS 는 그렇지 않으면 소리 장치를 열어주지 않습니다) */
-  async function open(deviceId) {
+  async function open(deviceId, noAec) {
     if (opened) return true;
 
     /* 브라우저는 "안전한 주소" 에서만 마이크를 내줍니다.
@@ -100,8 +106,11 @@ const Voice = (() => {
        알아서 맞춰버려서, 크게 외쳤는지 아닌지를 판단할 수가 없습니다.
        noiseSuppression 은 껐습니다. 잡음을 지우는 과정에서 음량 자체가
        깎여서, 우리가 재려는 값이 망가집니다. */
+    /* 에코 제거(echoCancellation)는 스피커 소리가 마이크로 들어오는 걸 줄여줍니다.
+       그런데 노트북 내장 마이크에서는 이게 소리를 통째로 눌러버리는 일이 있습니다.
+       그래서 끌 수 있게 해뒀습니다. */
     const want = {
-      echoCancellation: { ideal: true },   // 스피커 소리가 마이크로 들어오는 걸 줄여줍니다
+      echoCancellation: { ideal: !noAec },
       noiseSuppression: { ideal: false },
       autoGainControl: { ideal: false }
     };
@@ -251,12 +260,9 @@ const Voice = (() => {
       margin = Math.min(margin, Math.max(CFG.MIN_MARGIN_DB, gap * CFG.LOUD_RATIO));
     }
 
-    // 배경음이 클수록 마이크에도 그만큼 들어오므로 기준을 같이 올립니다
-    const bgm = (typeof Audio9 !== "undefined" && !Audio9.paused)
-      ? CFG.BGM_COMP_DB * Audio9.volume
-      : 0;
-
-    return Math.max(noiseFloor + margin + bgm, CFG.ABS_FLOOR_DB) + userAdjust;
+    // 노래가 마이크로 들어오는 몫은 이미 noiseFloor 에 포함돼 있습니다
+    // (소음을 잴 때 노래를 같이 틀었습니다). 여기서 따로 더하지 않습니다.
+    return Math.max(noiseFloor + margin, CFG.ABS_FLOOR_DB) + userAdjust;
   }
 
   /* ---- 지금 소리를 내고 있는가 ----
