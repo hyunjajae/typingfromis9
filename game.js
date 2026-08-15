@@ -1706,6 +1706,7 @@ const Chant = (() => {
     },
     onLiveStart(c) {
       this.ready = false;
+      input.disabled = false;
       input.value = "";
       input.maxLength = c.text.length;
       input.focus();
@@ -1713,8 +1714,22 @@ const Chant = (() => {
     onFrame(now, judge) {
       if (judge && this.ready) hit();
     },
-    onLiveEnd() { this.ready = false; input.value = ""; },
-    cleanup() {}
+
+    /* 구간이 아닐 때는 입력창을 아예 잠급니다.
+
+       예전에는 열어둔 채로 "구간이 아니면 무시" 만 했습니다. 그런데 무시해도
+       글자는 입력창에 그대로 쌓입니다. 특히 한글은 조합 중인 글자가 남아 있다가
+       다음 구간이 뜨는 순간 한꺼번에 튀어나옵니다.
+
+       disabled 로 잠그면 글자가 들어오지도 않고 조합도 끊깁니다.
+       구간이 뜨면 다시 열고 비운 뒤 커서를 돌려줍니다. */
+    onLiveEnd() {
+      this.ready = false;
+      input.value = "";
+      composing = false;
+      input.disabled = true;
+    },
+    cleanup() { input.disabled = false; }
   };
 
   /* ---- ② 음성 : 마이크에 대고 실제로 외칩니다 ----
@@ -1952,11 +1967,11 @@ const Chant = (() => {
     });
   }
 
-  /** 응원법 영상 버튼은 그 곡에 영상 주소가 있을 때만 보입니다 */
+  /* 응원법 영상 버튼은 그 곡에 영상 주소가 있을 때만 보입니다.
+     영상은 <입력 방식 고르는 화면> 에서만 봅니다. 마이크를 맞추는 화면에서는
+     소리를 재는 중이라 영상이 나오면 방해만 됩니다. */
   function paintVideoBtns() {
-    const has = !!(song && song.chantVideo);
-    $("#btnChantVideo1").hidden = !has;
-    $("#btnChantVideo2").hidden = !has;
+    $("#btnChantVideo1").hidden = !(song && song.chantVideo);
   }
 
   /* ---- 유튜브 주소에서 영상 번호만 뽑기 ----
@@ -2442,6 +2457,18 @@ const Chant = (() => {
     raf = requestAnimationFrame(tick);
   }
 
+  /* ---- 한 줄에 몇 음절인가 ----
+     가사 색을 채우는 속도를 정할 때만 씁니다. 판정과는 상관없습니다.
+     한글은 한 글자가 한 음절, 영어는 모음 덩어리 하나가 한 음절입니다.
+     ("So perfect" 는 9글자지만 세 번에 끝납니다) */
+  function beatsOf(text) {
+    let n = (text.match(/[가-힣]/g) || []).length;
+    const latin = text.replace(/[가-힣]/g, " ");
+    n += (latin.match(/[aeiouyAEIOUY]+/g) || []).length;
+    n += (latin.match(/[0-9]/g) || []).length;
+    return Math.max(1, n);
+  }
+
   /* ---- ① 가사 흐르기 ----
      지금 노래가 어느 줄을 부르고 있는지 보여줍니다. 치는 건 아닙니다.
      현재 줄은 왼쪽부터 초록으로 채워집니다(노래방 효과). */
@@ -2460,12 +2487,21 @@ const Chant = (() => {
       $("#chantLyricNext").textContent = words[i + 1] ? words[i + 1].text : "";
     }
 
-    // 이 줄이 어디까지 왔는지 (다음 줄 시작까지를 100% 로 봅니다)
+    /* 이 줄이 어디까지 왔는지.
+
+       예전에는 <다음 줄이 시작할 때까지> 를 100% 로 봤습니다. 그런데 줄 사이에는
+       간주도 있고 쉬는 자리도 있어서, 다 부른 뒤에도 색이 계속 기어갑니다.
+       "Hey you 지금 뭐 해" 는 1.5초면 끝나는데 3.93초에 걸쳐 채워졌습니다.
+       그래서 색이 목소리보다 한참 뒤처져서 늦게 흐르는 느낌이 났습니다.
+
+       이제 그 줄을 부르는 데 걸릴 만한 시간에 맞춰 채웁니다.
+       (다음 줄이 그보다 빨리 오면 거기서 끊습니다) */
     let pct = 0;
     if (i >= 0) {
       const from = words[i].time;
-      const to = words[i + 1] ? words[i + 1].time : from + 4;
-      pct = Math.max(0, Math.min(100, ((now - from) / Math.max(0.01, to - from)) * 100));
+      const gap = words[i + 1] ? words[i + 1].time - from : 4;
+      const sung = Math.min(gap, Math.max(0.8, beatsOf(words[i].text) * 0.25));
+      pct = Math.max(0, Math.min(100, ((now - from) / Math.max(0.01, sung)) * 100));
     }
     $("#chantLyricNow").style.setProperty("--sung", pct.toFixed(1) + "%");
   }
@@ -2739,6 +2775,8 @@ const Chant = (() => {
     if (!running || paused) return;
     paused = true;
     Audio9.pause();
+    // 멈춰 있는 동안 친 글자가 이어서 할 때 튀어나오지 않게
+    if (mode === "typing") { input.value = ""; composing = false; input.disabled = true; }
 
     const isVoice = mode === "voice";
     $("#pauseVoiceBox").hidden = !isVoice;
@@ -2758,6 +2796,11 @@ const Chant = (() => {
     paused = false;
     // 멈춰 있던 동안 흐른 실제 시간은 없던 것으로 (안 그러면 한 박자 튑니다)
     if (method && method.onResume) method.onResume();
+    if (mode === "typing" && live) {
+      input.disabled = false;
+      input.value = "";
+      input.focus();
+    }
     Audio9.resume();
   }
 
@@ -2786,27 +2829,41 @@ const Chant = (() => {
     if (Typing.ready && judgingNow(Audio9.time)) hit();
   }
 
-  input.addEventListener("compositionstart", () => { composing = true; });
-  input.addEventListener("compositionupdate", () => {
+  /* 구간이 아닐 때 새어 들어온 글자는 그 자리에서 지웁니다.
+     (입력창을 disabled 로 이미 잠그지만, 조합 처리는 브라우저마다 달라서 한 번 더) */
+  const blocked = () => !running || paused || !live || mode !== "typing";
+
+  input.addEventListener("compositionstart", () => {
+    if (blocked()) { input.value = ""; return; }
     composing = true;
-    if (live) renderTypingCells(elLine, list[idx].text, input.value, true);
   });
-  input.addEventListener("compositionend", () => { composing = false; onInput(); });
+  input.addEventListener("compositionupdate", () => {
+    if (blocked()) { input.value = ""; composing = false; return; }
+    composing = true;
+    renderTypingCells(elLine, list[idx].text, input.value, true);
+  });
+  input.addEventListener("compositionend", () => {
+    if (blocked()) { input.value = ""; composing = false; return; }
+    composing = false;
+    onInput();
+  });
   input.addEventListener("input", (e) => {
+    if (blocked()) { input.value = ""; composing = false; return; }
     if (e.isComposing || composing) {
-      if (live) renderTypingCells(elLine, list[idx].text, input.value, true);
+      renderTypingCells(elLine, list[idx].text, input.value, true);
       return;
     }
     onInput();
   });
   input.addEventListener("keydown", (e) => {
+    if (blocked() && e.key !== "Escape") { e.preventDefault(); return; }
     if (e.key === "Enter") e.preventDefault();
     // Esc 는 아래 문서 전체 처리에서 "잠깐 멈춤" 으로 받습니다
   });
 
   // 화면 아무 데나 눌러도 입력창에 포커스가 돌아오게 (타이핑 모드만)
   $("#screen-chant").addEventListener("mousedown", (e) => {
-    if (mode !== "typing" || e.target.tagName === "BUTTON") return;
+    if (mode !== "typing" || input.disabled || e.target.tagName === "BUTTON") return;
     setTimeout(() => input.focus(), 0);
   });
 
@@ -2900,7 +2957,6 @@ const Chant = (() => {
     }
   });
   $("#btnChantVideo1").addEventListener("click", openVideo);
-  $("#btnChantVideo2").addEventListener("click", openVideo);
   $("#btnVideoClose").addEventListener("click", closeVideo);
   $("#btnVidHere").addEventListener("click", () => {
     if (!ytPlayer || !ytPlayer.getCurrentTime) return;

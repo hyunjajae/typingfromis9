@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 12;
+      var VER = 14;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -87,8 +87,8 @@
             <span class="mode-card__no">
               <span class="new-badge" id="chantNewBadge">NEW</span>01
             </span>
-            <span class="mode-card__title">응원법 타이핑</span>
-            <span class="mode-card__desc">노래는 멈추지 않습니다. 응원 구간이 뜨면<br />그 안에 쳐야 성공하는 순발력 도전.</span>
+            <span class="mode-card__title">응원법 외우기</span>
+            <span class="mode-card__desc">마이크에 대고 <b>직접 외치거나</b>, 키보드로 쳐서 익힙니다.<br />노래는 멈추지 않아요 — 박자를 맞춰야 성공.</span>
             <span class="mode-card__go">시작하기 →</span>
           </span>
         </button>
@@ -550,7 +550,6 @@
 
       <div class="btn-row btn-row--lg">
         <button class="solid-btn" id="btnChantStart" type="button" disabled>시작하기</button>
-        <button class="ghost-btn" id="btnChantVideo2" type="button" hidden>▶ 응원법 영상 보기</button>
         <button class="ghost-btn" id="btnReadyToTyping" type="button">타이핑으로 하기</button>
       </div>
     </section>
@@ -785,7 +784,7 @@
       <div class="rank-tabs">
         <button class="rank-tab is-on" id="tabQuiz" type="button">인트로 퀴즈</button>
         <button class="rank-tab" id="tabLyrics" type="button">가사 타이핑</button>
-        <button class="rank-tab" id="tabChant" type="button">응원법 타이핑</button>
+        <button class="rank-tab" id="tabChant" type="button">응원법</button>
         <select class="rank-song" id="rankSong" hidden></select>
         <select class="rank-song" id="rankInput" hidden>
           <option value="voice">🎤 외치기</option>
@@ -911,7 +910,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 12;
+      var VER = 14;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
