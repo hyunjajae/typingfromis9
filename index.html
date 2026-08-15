@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 11;
+      var VER = 12;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -882,6 +882,15 @@
         <b>연습 중에는 이 영상이 나오지 않습니다.</b>
       </p>
       <div class="video-box" id="videoBox"></div>
+
+      <!-- 나 전용 : 응원법 나오는 대목을 시작 시각으로 잡습니다 -->
+      <div class="vid-tune" id="vidTune" hidden>
+        <button class="ghost-btn ghost-btn--sm" id="btnVidHere" type="button">⏱ 지금 이 대목부터</button>
+        <b class="vid-tune__now" id="vidNow">0:00</b>
+        <button class="ghost-btn ghost-btn--sm" id="btnVidReset" type="button">처음부터</button>
+        <code class="vid-tune__code" id="vidCode"></code>
+      </div>
+
       <p class="modal__err" id="videoErr" hidden>
         영상이 안 보이면
         <a id="videoLink" href="#" target="_blank" rel="noopener">유튜브에서 열기</a>
@@ -902,7 +911,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 11;
+      var VER = 12;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";

@@ -1981,22 +1981,82 @@ const Chant = (() => {
     return (+(hms[1] || 0)) * 3600 + (+(hms[2] || 0)) * 60 + (+(hms[3] || 0));
   }
 
+  /* ---- 시작 시각 고르기 (나 전용) ----
+
+     주소를 손으로 고치지 않고, 영상을 보다가 응원법이 나오는 대목에서
+     버튼만 누르면 그 시각이 잡히게 합니다.
+
+     유튜브 IFrame Player API 를 씁니다. 키도 할당량도 필요 없고,
+     지금 재생 위치를 읽어오려고 쓰는 것뿐입니다.
+     스크립트는 나 전용일 때, 그것도 처음 쓸 때만 받아옵니다.
+     (평소 방문자는 예전 그대로 — 바깥에서 받아오는 게 없습니다) */
+  let ytPlayer = null;
+  let ytPoll = null;
+
+  function loadYTApi() {
+    return new Promise((done, fail) => {
+      if (window.YT && window.YT.Player) return done();
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => { if (prev) prev(); done(); };
+      if (!document.getElementById("ytapi")) {
+        const s = document.createElement("script");
+        s.id = "ytapi";
+        s.src = "https://www.youtube.com/iframe_api";
+        s.onerror = () => fail(new Error("API 를 못 받았습니다"));
+        document.head.appendChild(s);
+      }
+      setTimeout(() => fail(new Error("시간 초과")), 6000);
+    });
+  }
+
+  async function attachYT(id, at) {
+    if (!isDev()) return;
+    try { await loadYTApi(); } catch (e) { return; }   // 안 되면 그냥 평소대로
+
+    ytPlayer = new YT.Player("ytFrame", {
+      events: {
+        onReady: () => {
+          $("#vidTune").hidden = false;
+          paintVidCode(at);
+          if (ytPoll) clearInterval(ytPoll);
+          ytPoll = setInterval(() => {
+            if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+            $("#vidNow").textContent = fmtMmSs(ytPlayer.getCurrentTime() || 0);
+          }, 200);
+        }
+      }
+    });
+  }
+
+  function paintVidCode(at) {
+    const base = String(song.chantVideo).split(/[?&#]/)[0];
+    const url = at ? base + "?t=" + Math.floor(at) : base;
+    song.chantVideo = url;                     // 이 판에서 바로 적용
+    $("#vidCode").textContent = 'chantVideo: "' + url + '"';
+  }
+
   function openVideo() {
     if (!song || !song.chantVideo) return;
     const id = ytId(song.chantVideo);
     const at = ytStart(song.chantVideo);
+    const dev = isDev();
     $("#videoBox").innerHTML = id
-      ? '<iframe src="https://www.youtube.com/embed/' + id + "?rel=0" +
-        (at ? "&start=" + at : "") + '" ' +
+      ? '<iframe id="ytFrame" src="https://www.youtube.com/embed/' + id + "?rel=0" +
+        (at ? "&start=" + at : "") + (dev ? "&enablejsapi=1" : "") + '" ' +
         'title="응원법 영상" allowfullscreen ' +
         'allow="accelerometer; encrypted-media; picture-in-picture"></iframe>'
       : "";
+    $("#vidTune").hidden = true;
+    if (id && dev) attachYT(id, at);
     // 유튜브가 임베드를 막아둔 영상도 있어서 대체 링크를 항상 같이 둡니다
     $("#videoLink").href = song.chantVideo;
     $("#videoErr").hidden = false;
     $("#videoModal").hidden = false;
   }
   function closeVideo() {
+    if (ytPoll) { clearInterval(ytPoll); ytPoll = null; }
+    ytPlayer = null;
+    $("#vidTune").hidden = true;
     $("#videoBox").innerHTML = "";      // 비우면 영상도 같이 멈춥니다
     $("#videoModal").hidden = true;
   }
@@ -2842,6 +2902,11 @@ const Chant = (() => {
   $("#btnChantVideo1").addEventListener("click", openVideo);
   $("#btnChantVideo2").addEventListener("click", openVideo);
   $("#btnVideoClose").addEventListener("click", closeVideo);
+  $("#btnVidHere").addEventListener("click", () => {
+    if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+    paintVidCode(Math.max(0, Math.floor(ytPlayer.getCurrentTime())));
+  });
+  $("#btnVidReset").addEventListener("click", () => paintVidCode(0));
   $("#videoModal").addEventListener("mousedown", (e) => {
     if (e.target.id === "videoModal") closeVideo();     // 바깥을 누르면 닫기
   });

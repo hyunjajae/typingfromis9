@@ -1821,6 +1821,36 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
 }
 .video-box iframe { width: 100%; height: 100%; border: 0; display: block; }
 
+/* 시작 시각 고르기 (나 전용) */
+.vid-tune {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m, 14px);
+}
+.vid-tune__now {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  min-width: 52px;
+}
+.vid-tune__code {
+  flex: 1 1 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+  background-color: var(--bg);
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
 @media (max-width: 760px) {
   .how-grid { grid-template-columns: 1fr; }
   .demo--how { height: 140px; }

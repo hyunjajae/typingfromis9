@@ -186,7 +186,7 @@ const SONGS = [
       { time: 198.29, text: "I want you" }
     ],
     // 응원법 참고 영상 (연습 전에만 보여줍니다) — 원하는 영상으로 바꿔도 됩니다
-    chantVideo: ""
+    chantVideo: "https://youtu.be/0hfJKtlA8R8"
   },
 
   /* ---------- 02 ---------- */
