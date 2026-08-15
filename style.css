@@ -1088,6 +1088,38 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
 /* 시간이 얼마 안 남으면 빨갛게 */
 .chant-timer__bar.is-hurry { background-color: var(--wrong); }
 
+/* ---- 음성 모드의 타이밍 막대 ----
+   남은 시간이 아니라 "언제 질러야 하는지" 를 보여줍니다.
+   초록 구간에 선이 들어왔을 때 지르면 됩니다. */
+.chant-timer { position: relative; }
+.chant-timer__hit,
+.chant-timer__now { display: none; }
+
+.chant-stage--voice .chant-timer { height: 10px; background-color: var(--line); }
+.chant-stage--voice .chant-timer__bar { display: none; }
+
+.chant-stage--voice .chant-timer__hit {
+  display: block;
+  position: absolute;
+  top: 0; bottom: 0;
+  border-radius: 6px;
+  background-color: var(--accent);
+  opacity: .3;
+  transition: opacity .15s var(--ease);
+}
+.chant-stage--voice .chant-timer__now {
+  display: block;
+  position: absolute;
+  top: -3px; bottom: -3px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 3px;
+  background-color: var(--text);
+}
+/* 지금이 그 순간 */
+.chant-stage--voice .chant-timer.is-now .chant-timer__hit { opacity: .85; }
+.chant-stage--voice .chant-timer.is-now .chant-timer__now { background-color: var(--accent-ink); }
+
 .chant-line-wrap { position: relative; }
 .chant-line {
   justify-content: center;

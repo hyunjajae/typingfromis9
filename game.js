@@ -1536,27 +1536,32 @@ const Chant = (() => {
   const GRACE = 3.0;       // 타이핑 : 응원 시각이 지난 뒤 봐주는 시간
   const GAP = 0.15;        // 다음 구간과 겹치지 않게 두는 최소 간격
 
-  // 음성 전용. 외치는 데 걸리는 시간에 이만큼만 더 얹어줍니다.
-  const VOICE_SLACK = 0.7;
-  // 음성은 살짝 먼저 지르는 게 자연스러워서 앞쪽으로만 조금 열어둡니다.
-  const VOICE_EARLY = 0.3;
   /* 찍어둔 시각보다 실제로 외치는 순간이 조금 늦습니다.
      (반주를 듣고 → 숨을 들이쉬고 → 소리가 나오기까지 걸리는 시간)
      그래서 음성일 때만 판정 구간 전체를 이만큼 뒤로 밉니다. */
   const VOICE_OFFSET = 0.3;
 
-  /* ---- 이 응원을 외치는 데 얼마나 걸리는가 ----
+  /* =====================================================================
+     음성 판정은 "언제 시작했는가" 만 봅니다
+     ---------------------------------------------------------------------
+     한동안은 "얼마나 오래 외쳤는가" 로 판정했습니다. 그런데 응원 하나가
+     몇 초짜리인지는 곡 데이터에 없습니다. 그래서 글자 수로, 음절 수로,
+     ~ 와 ! 로 계속 <추측> 했는데 — 추측이라 늘 조금씩 어긋났습니다.
+     곡마다 dur 를 손으로 적는 것도 371구간을 생각하면 말이 안 됩니다.
 
-     글자 수로 세면 안 됩니다. 영어는 글자 수에 비해 훨씬 빨리 지나갑니다.
-     "So perfect" 는 9글자지만 세 번에 끝나고,
-     "프로미스나인" 은 6글자에 여섯 번입니다.
-     그래서 글자가 아니라 <음절> 을 셉니다.
+     그런데 응원법 연습에서 정말 중요한 건 길이가 아니라 <타이밍> 입니다.
+     제때 질렀으면 맞은 겁니다. 그리고 그 타이밍은 이미 정확히 있습니다.
+     time 이 바로 그 값이니까요.
 
-     늘여 부르는 자리(캬~, 와!!!)는 음절이 하나여도 오래 끌어야 하므로
-     ~ 와 ! 를 따로 세서 시간을 더해줍니다. */
-  const SYLLABLE_COST = 0.12;   // 한 음절
-  const TILDE_COST = 0.3;       // ~ 하나당 (늘여 부르는 표시)
-  const BANG_COST = 0.16;       // 두 번째부터의 ! 하나당 (와!!! 처럼 지르는 자리)
+     그래서 소리를 <내기 시작한 순간> 이 time 근처인지만 봅니다.
+     추측이 없으니 어긋날 데가 없습니다.
+
+     덤으로 반응도 빨라집니다. 예전에는 다 외치고 나서야 성공이 떴는데
+     (그래서 늘 한 박자 늦은 느낌이었습니다) 이제 지르는 순간 바로 뜹니다. */
+
+  const HIT_EARLY = 0.5;    // 이만큼 일찍 질러도 인정
+  const HIT_LATE = 0.5;     // 이만큼 늦게 질러도 인정
+  const MIN_VOICE = 0.22;   // 기침·마우스 소리가 아니라고 볼 최소 발성 시간
 
   let song = null;
   let list = [];           // 이 곡의 응원 구간들
@@ -1582,33 +1587,12 @@ const Chant = (() => {
      (DM 처럼 2초 간격으로 붙어 있는 구간이 있어서 꼭 필요합니다) */
   /* ---- 이 구간을 외치는 데 걸리는 시간 ----
      띄어쓰기는 실제로는 숨 쉬는 자리라 세지 않습니다. */
-  /** 음절 수 세기 — 한글은 한 글자가 한 음절, 영어는 모음 덩어리 하나가 한 음절 */
-  function beatsOf(text) {
-    let n = (text.match(/[가-힣]/g) || []).length;
-    const latin = text.replace(/[가-힣]/g, " ");
-    n += (latin.match(/[aeiouyAEIOUY]+/g) || []).length;
-    n += (latin.match(/[0-9]/g) || []).length;
-    return Math.max(1, n);
-  }
-
-  function needOf(i) {
-    // 곡 데이터에 dur 를 적어두면 그 값을 그대로 씁니다 (자동 계산이 안 맞는 자리용)
-    if (typeof list[i].dur === "number") return Math.max(0.2, list[i].dur);
-
-    const text = list[i].text;
-    const tilde = (text.match(/[~〜ー]/g) || []).length;
-    const bang = Math.max(0, (text.match(/!/g) || []).length - 1);
-    return Math.max(0.3,
-      beatsOf(text) * SYLLABLE_COST + tilde * TILDE_COST + bang * BANG_COST);
-  }
-
   /* ---- 응원 시각이 지난 뒤 몇 초까지 봐줄지 ----
      타이핑은 치는 속도가 사람마다 달라서 넉넉히 3초를 줍니다.
-     음성은 다릅니다. 응원법은 외치는 타이밍이 딱 정해져 있어서
-     늦게 외치면 그건 사실 틀린 겁니다. 그래서 "외칠 만큼 + 반응할 짬" 만 줍니다. */
+     음성은 인정 구간이 끝나면 바로 판정합니다. 조금 여유만 둡니다. */
   function graceOf(i) {
     if (mode !== "voice") return GRACE;
-    return Math.max(1.2, needOf(i) + VOICE_SLACK);
+    return HIT_LATE + MIN_VOICE + 0.15;
   }
 
   /** 이 구간을 "노려야 하는 시각". 음성일 때만 조금 뒤로 밀려 있습니다. */
@@ -1633,8 +1617,8 @@ const Chant = (() => {
      그래서 실제 판정은 그 응원이 나와야 하는 시각(time)부터 시작합니다.
      → 미리 다 쳐놓았다면 time 이 되는 순간 성공으로 넘어갑니다. */
   function judgeFrom(i) {
-    // 음성은 반 박자 먼저 지르는 게 자연스러워서 앞쪽만 조금 열어둡니다.
-    const start = atOf(i) - (mode === "voice" ? VOICE_EARLY : 0);
+    // 음성은 인정 구간이 time 앞뒤로 열려 있습니다.
+    const start = atOf(i) - (mode === "voice" ? HIT_EARLY : 0);
     // 응원이 아주 촘촘히 붙어 있으면 마감이 time 보다 앞에 올 수도 있습니다.
     // 그러면 성공할 방법이 아예 없어지므로, 최소한의 시간은 남겨둡니다.
     return Math.min(start, deadlineOf(i) - 0.4);
@@ -1688,9 +1672,10 @@ const Chant = (() => {
      쌓이는 만큼 글자가 왼쪽부터 채워져서, 알아듣고 있다는 게 눈에 보입니다. */
   const VoiceMode = {
     id: "voice",
-    need: 1,               // 이 구간을 성공하려면 외쳐야 하는 시간(초)
-    loud: 0,               // 지금까지 외친 시간
-    shown: -1,             // 화면에 채워둔 글자 수 (같으면 다시 안 그림)
+    wasLoud: false,        // 직전 프레임에 소리를 내고 있었는지 (시작 순간을 잡으려고)
+    onsetAt: null,         // 이번에 소리를 내기 시작한 노래 시각
+    onsetOk: false,        // 그 시작이 제 타이밍이었는지
+    loud: 0,               // 시작한 뒤로 낸 시간
     lastT: 0,              // 직전 프레임 시각 (초 단위)
 
     enter() {
@@ -1716,14 +1701,14 @@ const Chant = (() => {
       elLine.style.setProperty("--sung", pct.toFixed(1) + "%");
     },
     onLiveStart(c) {
-      // 창이 유난히 좁은 구간(응원이 촘촘히 붙은 곳)에서는 목표를 같이 줄입니다.
-      const win = Math.max(0.5, deadlineOf(idx) - judgeFrom(idx));
-      this.need = Math.min(needOf(idx), win * 0.7);
+      this.wasLoud = false;
+      this.onsetAt = null;
+      this.onsetOk = false;
       this.loud = 0;
-      this.shown = -1;
       this.lastT = 0;
       this.setText(c.text, 0);
     },
+
     onFrame(now, judge) {
       Voice.update();
       Voice.paintGauge($("#chantBar"), $("#chantZone"), $("#chantGaugeHint"));
@@ -1734,14 +1719,31 @@ const Chant = (() => {
       const dt = this.lastT ? Math.min(0.1, t - this.lastT) : 0;
       this.lastT = t;
 
-      if (!judge || !live) return;
-      if (Voice.isLoud()) this.loud += dt;
+      if (!live || resolved) return;
 
-      const p = Math.min(1, this.loud / this.need);
-      this.setText(list[idx].text, p * 100);
-      if (p >= 1) hit();
+      const loud = Voice.isLoud();
+
+      // 소리를 내기 시작한 순간을 잡습니다
+      if (loud && !this.wasLoud) {
+        this.onsetAt = now;
+        this.loud = 0;
+        // 그 순간이 응원 시각 언저리였는가 — 이것만으로 맞았는지가 정해집니다
+        const target = atOf(idx);
+        this.onsetOk = now >= target - HIT_EARLY && now <= target + HIT_LATE;
+      }
+      this.wasLoud = loud;
+
+      if (loud) this.loud += dt;
+      else if (!this.onsetOk) this.loud = 0;    // 엉뚱한 때 낸 소리는 잊습니다
+
+      // 제 타이밍에 시작했고, 기침이 아니라 진짜 발성이면 성공
+      if (this.onsetOk) {
+        this.setText(list[idx].text, Math.min(1, this.loud / MIN_VOICE) * 100);
+        if (this.loud >= MIN_VOICE) hit();
+      }
     },
-    onLiveEnd() { this.lastT = 0; },
+
+    onLiveEnd() { this.lastT = 0; this.wasLoud = false; },
     cleanup() { Voice.close(); }
   };
 
@@ -2269,13 +2271,29 @@ const Chant = (() => {
     $("#chantProgressBar").style.width = (idx / list.length) * 100 + "%";
 
     if (live) {
-      // 남은 시간 막대
       const from = showAtOf(idx);
       const to = deadlineOf(idx);
-      const left = Math.max(0, Math.min(1, (to - now) / Math.max(0.01, to - from)));
-      const bar = $("#chantTimerBar");
-      bar.style.transform = "scaleX(" + left + ")";
-      bar.classList.toggle("is-hurry", left < 0.3);
+      const span = Math.max(0.01, to - from);
+
+      if (mode === "voice") {
+        /* 음성은 "언제 지르는가" 가 전부라서, 남은 시간보다
+           <외쳐야 하는 순간> 을 보여주는 게 훨씬 도움이 됩니다.
+           초록 구간에 현재 위치 선이 들어왔을 때 지르면 됩니다. */
+        const target = atOf(idx);
+        const pct = (t) => Math.max(0, Math.min(100, ((t - from) / span) * 100));
+        const a = pct(target - HIT_EARLY);
+        const b = pct(target + HIT_LATE);
+        $("#chantTimerHit").style.left = a.toFixed(1) + "%";
+        $("#chantTimerHit").style.width = (b - a).toFixed(1) + "%";
+        $("#chantTimerNow").style.left = pct(now).toFixed(1) + "%";
+        $("#chantTimer").classList.toggle("is-now", now >= target - HIT_EARLY && now <= target + HIT_LATE);
+      } else {
+        // 타이핑 : 남은 시간 막대
+        const left = Math.max(0, Math.min(1, (to - now) / span));
+        const bar = $("#chantTimerBar");
+        bar.style.transform = "scaleX(" + left + ")";
+        bar.classList.toggle("is-hurry", left < 0.3);
+      }
     } else {
       // 기다리는 동안 : 다음에 외칠 말을 미리 보여줍니다
       const wait = Math.max(0, showAtOf(idx) - now);
