@@ -1538,6 +1538,10 @@ const Chant = (() => {
   const VOICE_SLACK = 0.7;
   // 음성은 살짝 먼저 지르는 게 자연스러워서 앞쪽으로만 조금 열어둡니다.
   const VOICE_EARLY = 0.3;
+  /* 찍어둔 시각보다 실제로 외치는 순간이 조금 늦습니다.
+     (반주를 듣고 → 숨을 들이쉬고 → 소리가 나오기까지 걸리는 시간)
+     그래서 음성일 때만 판정 구간 전체를 이만큼 뒤로 밉니다. */
+  const VOICE_OFFSET = 0.3;
 
   let song = null;
   let list = [];           // 이 곡의 응원 구간들
@@ -1577,13 +1581,18 @@ const Chant = (() => {
     return Math.max(1.2, needOf(i) + VOICE_SLACK);
   }
 
+  /** 이 구간을 "노려야 하는 시각". 음성일 때만 조금 뒤로 밀려 있습니다. */
+  function atOf(i) {
+    return list[i].time + (mode === "voice" ? VOICE_OFFSET : 0);
+  }
+
   function deadlineOf(i) {
-    const own = list[i].time + graceOf(i);
-    const next = list[i + 1] ? list[i + 1].time - GAP : Infinity;
+    const own = atOf(i) + graceOf(i);
+    const next = list[i + 1] ? atOf(i + 1) - GAP : Infinity;
     return Math.min(own, next);
   }
   function showAtOf(i) {
-    const own = list[i].time - LEAD;
+    const own = atOf(i) - LEAD;
     const prev = i > 0 ? deadlineOf(i - 1) : 0;
     return Math.max(own, prev, 0);
   }
@@ -1595,7 +1604,7 @@ const Chant = (() => {
      → 미리 다 쳐놓았다면 time 이 되는 순간 성공으로 넘어갑니다. */
   function judgeFrom(i) {
     // 음성은 반 박자 먼저 지르는 게 자연스러워서 앞쪽만 조금 열어둡니다.
-    const start = list[i].time - (mode === "voice" ? VOICE_EARLY : 0);
+    const start = atOf(i) - (mode === "voice" ? VOICE_EARLY : 0);
     // 응원이 아주 촘촘히 붙어 있으면 마감이 time 보다 앞에 올 수도 있습니다.
     // 그러면 성공할 방법이 아예 없어지므로, 최소한의 시간은 남겨둡니다.
     return Math.min(start, deadlineOf(i) - 0.4);
@@ -1841,6 +1850,20 @@ const Chant = (() => {
   function testLoop() {
     Voice.update();
     Voice.paintGauge($("#testBar"), $("#testZone"), $("#testHint"));
+
+    // 숫자로도 보여줍니다. 게이지가 안 움직일 때 원인을 좁힐 수 있게.
+    const el = $("#micRead");
+    if (Voice.isSilent()) {
+      el.innerHTML = "<b>마이크에서 소리가 전혀 들어오지 않습니다.</b> " +
+        "윈도우 <b>설정 → 시스템 → 소리 → 입력</b> 에서 맞는 마이크가 골라져 있는지, " +
+        "음소거나 볼륨 0 이 아닌지 확인해 주세요." +
+        (Voice.deviceLabel() ? "<br />지금 쓰는 장치: " + Voice.deviceLabel() : "");
+      el.className = "mic-read is-ng";
+    } else {
+      el.textContent = "지금 " + Voice.level.toFixed(0) + " dB · 넘겨야 하는 값 " +
+        Voice.threshold().toFixed(0) + " dB";
+      el.className = "mic-read";
+    }
     testRaf = requestAnimationFrame(testLoop);
   }
 
@@ -1886,6 +1909,7 @@ const Chant = (() => {
     stepMark("#stepCalib", "#calibMark", null);
     $("#calibFill").style.width = "0%";
     $("#micTest").hidden = true;
+    $("#micPickBox").hidden = true;
     $("#readyError").hidden = true;
     $("#btnChantStart").disabled = true;
     $("#micAdjust").value = String(Voice.getAdjust());
@@ -1905,17 +1929,63 @@ const Chant = (() => {
     }
     stepMark("#stepMic", "#micMark", "is-done");
     $("#micDesc").textContent = "마이크를 쓸 수 있습니다.";
+    await fillMicList();
 
     // 2) 방이 얼마나 조용한지 재기
+    await measureAndTest();
+  }
+
+  /** 소음 재기 → 소리 테스트 (마이크를 바꾸면 이 부분만 다시 합니다) */
+  async function measureAndTest() {
+    stepMark("#stepCalib", "#calibMark", null);
+    $("#calibFill").style.width = "0%";
+    $("#micTest").hidden = true;
+    $("#btnChantStart").disabled = true;
+    stopTest();
+
     await Voice.calibrate((p) => { $("#calibFill").style.width = (p * 100).toFixed(0) + "%"; });
     stepMark("#stepCalib", "#calibMark", "is-done");
     $("#calibDesc").textContent = "다 쟀습니다. 이 방 기준으로 맞췄어요.";
 
-    // 3) 소리 테스트
     $("#micTest").hidden = false;
     $("#btnChantStart").disabled = false;
-    stopTest();
     testLoop();
+  }
+
+  /* ---- 마이크가 여러 개면 고를 수 있게 ----
+     윈도우에서는 크롬이 엉뚱한 입력 장치를 잡는 일이 흔합니다.
+     권한은 멀쩡히 받았는데 소리가 하나도 안 들어오면 대부분 이 경우예요. */
+  async function fillMicList() {
+    let mics = [];
+    try { mics = await Voice.listMics(); } catch (e) { return; }
+    if (mics.length < 2) { $("#micPickBox").hidden = true; return; }
+
+    const sel = $("#micPick");
+    sel.replaceChildren();
+    mics.forEach((m) => {
+      const o = document.createElement("option");
+      o.value = m.id;
+      o.textContent = m.label;
+      sel.appendChild(o);
+    });
+    if (Voice.currentId()) sel.value = Voice.currentId();
+    $("#micPickBox").hidden = false;
+  }
+
+  async function switchMic() {
+    const id = $("#micPick").value;
+    stopTest();
+    Voice.close();
+    try {
+      await Voice.open(id);
+    } catch (e) {
+      stepMark("#stepMic", "#micMark", "is-ng");
+      $("#readyError").innerHTML = micErrorHtml(e);
+      $("#readyError").hidden = false;
+      return;
+    }
+    $("#readyError").hidden = true;
+    await measureAndTest();
   }
 
   function paintAdjustLabel() {
@@ -2280,6 +2350,7 @@ const Chant = (() => {
   });
   $("#btnChantStart").addEventListener("click", () => start(song, "voice"));
   $("#btnReadyToTyping").addEventListener("click", () => { release(); start(song, "typing"); });
+  $("#micPick").addEventListener("change", switchMic);
   $("#micAdjust").addEventListener("input", () => {
     Voice.setAdjust(Number($("#micAdjust").value));
     paintAdjustLabel();

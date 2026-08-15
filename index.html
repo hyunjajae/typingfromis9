@@ -444,6 +444,11 @@
           <div class="ready-step__body">
             <p class="ready-step__title">마이크 사용 허락</p>
             <p class="ready-step__desc" id="micDesc">브라우저가 물어보면 "허용"을 눌러주세요.</p>
+            <!-- 마이크가 여러 개일 때 골라 쓸 수 있게 -->
+            <label class="mic-pick" id="micPickBox" hidden>
+              <span>쓸 마이크</span>
+              <select id="micPick"></select>
+            </label>
           </div>
           <span class="ready-step__mark" id="micMark">…</span>
         </div>
@@ -483,6 +488,9 @@
           </div>
         </div>
         <p class="vol-gauge__hint" id="testHint"></p>
+
+        <!-- 숫자로도 보여줍니다. 안 될 때 뭐가 문제인지 알 수 있게. -->
+        <p class="mic-read" id="micRead"></p>
 
         <label class="mic-adjust">
           <span>인식 민감도</span>

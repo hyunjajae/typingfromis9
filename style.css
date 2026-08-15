@@ -1373,6 +1373,40 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
 .vol-gauge--play { width: min(460px, 78%); margin: 4px auto 0; }
 .vol-gauge--play .vol-gauge__track { height: 10px; }
 
+/* ---- 마이크 고르기 ---- */
+.mic-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.mic-pick select {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background-color: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 12px;
+  outline: 0;
+  cursor: pointer;
+}
+
+/* ---- 지금 들어오는 소리 (숫자) ---- */
+.mic-read {
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+.mic-read.is-ng { color: var(--wrong); font-variant-numeric: normal; }
+
 /* ---- 민감도 슬라이더 ---- */
 .mic-adjust {
   display: flex;
@@ -1391,6 +1425,15 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
   line-height: 1.6;
   color: var(--muted);
 }
+
+/* ---- 아래 버튼 줄은 위 내용과 충분히 떼어놓습니다 ----
+   .btn-row 자체에는 위 여백이 없어서, 바로 앞 요소에 아래 여백이 없으면
+   버튼이 카드에 딱 붙습니다. 카드 그림자까지 겹쳐서 눌린 것처럼 보여요. */
+#screen-chant-how .btn-row,
+#screen-chant-ready .btn-row { margin-top: 38px; }
+
+/* 준비 화면은 단계 → 테스트 → 오류 순서라 사이 간격도 벌려둡니다 */
+#screen-chant-ready .ready-error { margin-top: 22px; }
 
 /* ---- 응원법 영상 창 ---- */
 .modal__box--wide { width: min(720px, 100%); }

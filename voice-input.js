@@ -49,11 +49,12 @@ const Voice = (() => {
   let noiseFloor = -60;      // 측정된 환경 소음
   let userAdjust = 0;        // 사용자가 슬라이더로 더하거나 뺀 값(dB)
   let opened = false;
+  let curId = "";            // 지금 쓰고 있는 마이크
 
   /* ---- 마이크 열기 ----
      반드시 사용자가 버튼을 누른 흐름 안에서 불러야 합니다.
      (iOS 는 그렇지 않으면 소리 장치를 열어주지 않습니다) */
-  async function open() {
+  async function open(deviceId) {
     if (opened) return true;
 
     /* 브라우저는 "안전한 주소" 에서만 마이크를 내줍니다.
@@ -76,15 +77,21 @@ const Voice = (() => {
       throw e;
     }
 
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,   // 스피커 소리가 마이크로 들어오는 걸 줄여줍니다
-        noiseSuppression: true,
-        // 자동 볼륨 조절은 반드시 꺼야 합니다.
-        // 켜두면 브라우저가 음량을 알아서 맞춰버려서 크게 외쳤는지 알 수 없습니다.
-        autoGainControl: false
-      }
-    });
+    /* 조건은 전부 "되면 좋고"(ideal) 로 겁니다.
+       required 로 걸면 그걸 못 맞추는 마이크에서 아예 실패해버립니다.
+       autoGainControl 은 특히 중요합니다. 켜져 있으면 브라우저가 음량을
+       알아서 맞춰버려서, 크게 외쳤는지 아닌지를 판단할 수가 없습니다.
+       noiseSuppression 은 껐습니다. 잡음을 지우는 과정에서 음량 자체가
+       깎여서, 우리가 재려는 값이 망가집니다. */
+    const want = {
+      echoCancellation: { ideal: true },   // 스피커 소리가 마이크로 들어오는 걸 줄여줍니다
+      noiseSuppression: { ideal: false },
+      autoGainControl: { ideal: false }
+    };
+    // 쓸 마이크를 직접 고른 경우
+    if (deviceId) want.deviceId = { exact: deviceId };
+
+    stream = await navigator.mediaDevices.getUserMedia({ audio: want });
 
     const AC = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AC();
@@ -103,12 +110,41 @@ const Voice = (() => {
 
     src.connect(highpass);
     highpass.connect(analyser);
-    // 스피커로는 내보내지 않습니다 (내보내면 하울링이 납니다)
+    // 스피커로는 내보내지 않습니다 (내보내면 하울링이 납니다).
+    // 분석기만 매달아둬도 크롬은 이 가지를 계산해줍니다 — 확인했습니다.
 
     buf = new Float32Array(analyser.fftSize);
     level = -100;
     opened = true;
+    curId = deviceId || "";
     return true;
+  }
+
+  /* ---- 쓸 수 있는 마이크 목록 ----
+     이름은 마이크 권한을 받은 뒤에야 보입니다. 그래서 open() 다음에 부릅니다.
+
+     윈도우에서는 크롬이 "기본 장치" 가 아니라 "통신용 기본 장치" 를 잡는 일이
+     자주 있습니다. 거기에 안 쓰는 헤드셋이나 스테레오 믹스가 걸려 있으면
+     권한은 멀쩡히 받았는데 소리는 하나도 안 들어옵니다.
+     그때 직접 고를 수 있어야 합니다. */
+  async function listMics() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return [];
+    const all = await navigator.mediaDevices.enumerateDevices();
+    return all
+      .filter((d) => d.kind === "audioinput")
+      .map((d, i) => ({ id: d.deviceId, label: d.label || "마이크 " + (i + 1) }));
+  }
+
+  const currentId = () => curId;
+
+  /** 마이크가 열려는 있는데 소리가 하나도 안 들어오는 상태인지 */
+  const isSilent = () => opened && readDb() <= -99;
+
+  /** 지금 어떤 마이크를 쓰고 있는지 (문제 생겼을 때 보여주려고) */
+  function deviceLabel() {
+    if (!stream) return "";
+    const t = stream.getAudioTracks()[0];
+    return t ? (t.label || "이름 없는 장치") : "";
   }
 
   function close() {
@@ -134,6 +170,8 @@ const Voice = (() => {
   /** 매 프레임 불러서 음량을 갱신합니다 */
   function update() {
     if (!opened) return level;
+    // 탭을 옮겨다니다 보면 소리 장치가 잠들어 있을 때가 있습니다
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
     const db = readDb();
     // 부드럽게 따라가게 합니다 (갑자기 튀는 값 억제)
     level = level + (db - level) * CFG.SMOOTH;
@@ -215,6 +253,7 @@ const Voice = (() => {
     open, close, update, calibrate,
     threshold, isLoud, paintGauge,
     setAdjust, getAdjust,
+    isSilent, deviceLabel, readDb, listMics, currentId,
     get level() { return level; },
     get noiseFloor() { return noiseFloor; },
     get opened() { return opened; }
