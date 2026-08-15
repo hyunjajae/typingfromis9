@@ -1591,6 +1591,7 @@ const Chant = (() => {
   let mode = "typing";     // "typing" | "voice"
   let method = null;       // 지금 쓰고 있는 입력 방식
   let onsetLog = [];       // 구간마다 "실제로 언제 소리를 냈는지" (타이밍 다듬기용)
+  let lastEnd = 0;         // 직전 구간의 판정이 실제로 끝난 시각
 
   const input = $("#chantInput");
   const elLine = $("#chantLine");
@@ -1618,9 +1619,21 @@ const Chant = (() => {
     const next = list[i + 1] ? atOf(i + 1) - GAP : Infinity;
     return Math.min(own, next);
   }
+  /* ---- 이 구간을 화면에 띄우는 시각 ----
+
+     앞 구간과 겹치면 안 되니 앞 구간이 끝난 뒤에 띄웁니다.
+     그런데 "앞 구간이 끝난 시각" 을 <예정된 마감> 으로 잡으면 안 됩니다.
+     이미 맞혔든 놓쳤든 판정이 끝났는데도 마감까지 기다리게 되거든요.
+
+     응원이 촘촘한 곳에서 이게 치명적이었습니다. 1초 간격이면 다음 응원이
+     0.15초 전에야 떠서, 읽을 새도 없이 외쳐야 했습니다.
+     (371구간 중 44구간이 준비 시간 1초 미만이었습니다)
+
+     그래서 <실제로 판정이 끝난 시각> 을 씁니다. 일찍 맞히면 그만큼
+     다음 응원을 일찍 볼 수 있습니다. */
   function showAtOf(i) {
     const own = atOf(i) - LEAD;
-    const prev = i > 0 ? deadlineOf(i - 1) : 0;
+    const prev = i === 0 ? 0 : (i === idx ? lastEnd : deadlineOf(i - 1));
     return Math.max(own, prev, 0);
   }
 
@@ -1769,7 +1782,13 @@ const Chant = (() => {
       if (this.onsetOk) {
         this.setText(list[idx].text, Math.min(1, this.loud / MIN_VOICE) * 100);
         if (this.loud >= MIN_VOICE) hit();
+        return;
       }
+
+      /* 인정 구간이 끝났는데 시작조차 못 했으면 더 볼 것이 없습니다.
+         마감까지 기다릴 이유가 없으니 바로 넘어갑니다.
+         (그만큼 다음 응원을 일찍 볼 수 있습니다) */
+      if (now > atOf(idx) + tune.tol) miss();
     },
 
     onLiveEnd() { this.lastT = 0; this.wasLoud = false; },
@@ -2159,6 +2178,7 @@ const Chant = (() => {
     stat = { ok: 0, miss: 0 };
     missed = [];
     onsetLog = [];
+    lastEnd = 0;
 
     $("#chantSongTitle").textContent = s.title;
     $("#chantTotal").textContent = list.length;
@@ -2262,6 +2282,8 @@ const Chant = (() => {
   }
 
   function advance() {
+    // 다음 구간이 이 시각부터 뜰 수 있습니다 (예정 마감까지 안 기다립니다)
+    lastEnd = Audio9.time;
     idx++;
     resolved = false;
     setLive(false);
