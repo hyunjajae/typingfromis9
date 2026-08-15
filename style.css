@@ -16,6 +16,7 @@
 
   /* 프로미스나인 포인트 컬러 (그린 계열) */
   --accent:      #0f9d76;
+  --accent-rgb:  15, 157, 118;    /* 은은하게 번지는 효과용 */
   --accent-ink:  #0b7a5b;
   --accent-soft: #e7f5f0;
 
@@ -46,6 +47,7 @@ html[data-theme="dark"] {
   --line-strong: #333a36;
 
   --accent:      #3fd9a0;
+  --accent-rgb:  63, 217, 160;
   --accent-ink:  #7ff0c4;
   --accent-soft: #13291f;
 
@@ -270,8 +272,22 @@ main {
 /* 카드가 둘뿐이면 위아래로 (강조 카드가 가로 전체를 쓰기 때문) */
 .mode-grid--pair { grid-template-columns: 1fr; }
 
-/* 맨 위에 크게 놓는 강조 카드 */
+/* 맨 위에 크게 놓는 강조 카드 —
+   NEW 배지가 붙어 있는 동안에는 카드 테두리도 포인트 색으로 둡니다.
+   배지 하나만으로는 멀리서 봤을 때 눈에 잘 안 들어옵니다. */
 .mode-card--featured { grid-column: 1 / -1; }
+
+/* NEW 배지가 붙어 있는 동안만 (features.js 의 chantIsNew 를 끄면 같이 사라집니다) */
+.mode-card--featured.is-new {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .1);
+}
+.mode-card--featured.is-new:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .16),
+              0 18px 44px -26px rgba(0,0,0,.32);
+}
+.mode-card--featured.is-new .mode-card__no { color: var(--accent); }
 
 /* 아래쪽 .mode-card 규칙(세로 배치)보다 우선하도록 클래스를 두 번 겹쳐 씁니다.
    그냥 .mode-card--featured 로 쓰면 나중에 나오는 .mode-card 에 밀려서
@@ -294,21 +310,33 @@ main {
   .mode-card.mode-card--featured .mode-card__title { font-size: 31px; }
 }
 
-/* NEW 배지 */
+/* ---- NEW 배지 ----
+   새로 만든 모드라는 걸 알아채게 하려고 세 가지를 같이 씁니다.
+     ① 배지 자체를 키우고
+     ② 물결이 퍼지듯 테두리가 번지게 하고
+     ③ 카드 테두리도 포인트 색으로 (아래 .mode-card--featured) */
 .new-badge {
   display: inline-block;
-  margin-right: 9px;
-  padding: 3px 9px;
+  margin-right: 10px;
+  padding: 4px 12px;
   border-radius: 999px;
   background-color: var(--accent);
   color: #fff;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: .06em;
+  letter-spacing: .1em;
   vertical-align: middle;
-  animation: wait-pulse 1.8s ease-in-out infinite;
+  animation: new-ripple 2.2s ease-out infinite;
 }
 html[data-theme="dark"] .new-badge { color: #06120d; }
+
+@keyframes new-ripple {
+  0%        { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), .5); }
+  60%, 100% { box-shadow: 0 0 0 9px rgba(var(--accent-rgb), 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-badge { animation: none; }
+}
 
 /* ---- 모드 카드 ----
    위쪽에는 그 모드의 실제 화면을 축소해 보여주고(mode-card__demo),

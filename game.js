@@ -316,7 +316,10 @@ function applyFeatureFlags() {
   }
 
   // NEW 배지는 따로 끌 수 있게 해둡니다
-  if (!feature("chantIsNew")) $("#chantNewBadge").hidden = true;
+  // NEW 배지가 붙어 있는 동안에는 카드 테두리도 포인트 색으로 (style.css 의 .is-new)
+  const isNew = feature("chantIsNew");
+  $("#chantNewBadge").hidden = !isNew;
+  $("#btnModeChant").classList.toggle("is-new", isNew);
 
   // 보이는 카드 수에 맞춰 배치를 바꿉니다
   const shown = $$(".mode-card").filter((c) => !c.hidden).length;
