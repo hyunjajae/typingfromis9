@@ -2457,21 +2457,25 @@ const Chant = (() => {
     raf = requestAnimationFrame(tick);
   }
 
-  /* ---- 한 줄에 몇 음절인가 ----
-     가사 색을 채우는 속도를 정할 때만 씁니다. 판정과는 상관없습니다.
-     한글은 한 글자가 한 음절, 영어는 모음 덩어리 하나가 한 음절입니다.
-     ("So perfect" 는 9글자지만 세 번에 끝납니다) */
-  function beatsOf(text) {
-    let n = (text.match(/[가-힣]/g) || []).length;
-    const latin = text.replace(/[가-힣]/g, " ");
-    n += (latin.match(/[aeiouyAEIOUY]+/g) || []).length;
-    n += (latin.match(/[0-9]/g) || []).length;
-    return Math.max(1, n);
+  /* 줄이 넘어갈 때 한 칸 위로 밀어 올립니다.
+     같은 애니메이션을 다시 돌리려면 클래스를 뗐다 붙여야 합니다.
+
+     끝나면 반드시 떼둡니다. 창이 가려져 애니메이션이 아예 안 도는 경우가
+     있는데, 그때 클래스가 남아 있으면 가사가 15px 내려간 채로 굳습니다.
+     그래서 animationend 만 믿지 않고 시계로도 같이 떼어냅니다. */
+  let stepTimer = null;
+  function stepLyrics() {
+    const box = $(".chant-lyrics");
+    box.classList.remove("is-step");
+    void box.offsetWidth;
+    box.classList.add("is-step");
+    if (stepTimer) clearTimeout(stepTimer);
+    stepTimer = setTimeout(() => box.classList.remove("is-step"), 400);
   }
 
-  /* ---- ① 가사 흐르기 ----
+  /* ---- ① 가사 세 줄 ----
      지금 노래가 어느 줄을 부르고 있는지 보여줍니다. 치는 건 아닙니다.
-     현재 줄은 왼쪽부터 초록으로 채워집니다(노래방 효과). */
+     유튜브 가사 영상처럼 지금 줄만 또렷하고, 넘어갈 때 위로 밀려 올라갑니다. */
   function paintLyrics(now) {
     if (words.length === 0) return;
 
@@ -2481,29 +2485,14 @@ const Chant = (() => {
     while (i >= 0 && words[i].time > now) i--;
 
     if (i !== wordIdx) {
+      const forward = i === wordIdx + 1;      // 한 줄 넘어간 경우에만 밀어 올립니다
       wordIdx = i;
       $("#chantLyricPrev").textContent = i > 0 ? words[i - 1].text : "";
       $("#chantLyricNow").textContent = i >= 0 ? words[i].text : "";
       $("#chantLyricNext").textContent = words[i + 1] ? words[i + 1].text : "";
+
+      if (forward) stepLyrics();
     }
-
-    /* 이 줄이 어디까지 왔는지.
-
-       예전에는 <다음 줄이 시작할 때까지> 를 100% 로 봤습니다. 그런데 줄 사이에는
-       간주도 있고 쉬는 자리도 있어서, 다 부른 뒤에도 색이 계속 기어갑니다.
-       "Hey you 지금 뭐 해" 는 1.5초면 끝나는데 3.93초에 걸쳐 채워졌습니다.
-       그래서 색이 목소리보다 한참 뒤처져서 늦게 흐르는 느낌이 났습니다.
-
-       이제 그 줄을 부르는 데 걸릴 만한 시간에 맞춰 채웁니다.
-       (다음 줄이 그보다 빨리 오면 거기서 끊습니다) */
-    let pct = 0;
-    if (i >= 0) {
-      const from = words[i].time;
-      const gap = words[i + 1] ? words[i + 1].time - from : 4;
-      const sung = Math.min(gap, Math.max(0.8, beatsOf(words[i].text) * 0.25));
-      pct = Math.max(0, Math.min(100, ((now - from) / Math.max(0.01, sung)) * 100));
-    }
-    $("#chantLyricNow").style.setProperty("--sung", pct.toFixed(1) + "%");
   }
 
   /* ---- ③ 앞으로 올 응원 두 개 ---- */

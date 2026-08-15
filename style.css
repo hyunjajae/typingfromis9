@@ -975,6 +975,14 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
 }
 
 /* ① 가사 — 노래를 따라가라고 보여주는 것이라 치지 않습니다 */
+/* ---- 가사 세 줄 ----
+   유튜브 가사 영상처럼, 지금 줄만 또렷하고 위아래는 흐리게 둡니다.
+   줄이 바뀌면 위로 밀려 올라갑니다.
+
+   예전에는 노래방처럼 왼쪽부터 색을 채웠는데 뺐습니다.
+   곡 데이터에 <줄이 끝나는 시각> 이 없어서 채우는 속도가 어차피 짐작이고,
+   짐작이 틀리면 색이 목소리와 어긋나서 오히려 거슬립니다.
+   "지금 어디냐" 는 아래 타이밍 막대와 남은 시간이 이미 정확히 알려줍니다. */
 .chant-lyrics {
   width: 100%;
   display: flex;
@@ -982,30 +990,36 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
   gap: 6px;
   min-height: 108px;
   justify-content: center;
+  overflow: hidden;
 }
-.chant-lyric { margin: 0; word-break: keep-all; transition: opacity .35s var(--ease); }
+/* 줄이 넘어갈 때 한 칸 위로 밀려 올라가는 느낌 */
+.chant-lyrics.is-step { animation: lyric-step .32s var(--ease); }
+@keyframes lyric-step {
+  from { transform: translateY(15px); }
+  to   { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chant-lyrics.is-step { animation: none; }
+}
+
+.chant-lyric {
+  margin: 0;
+  word-break: keep-all;
+  transition: opacity .3s var(--ease), color .3s var(--ease);
+}
 .chant-lyric--side {
   font-size: clamp(.95rem, 2.4vw, 1.15rem);
   color: var(--text-soft);
-  opacity: .4;
+  opacity: .3;
   min-height: 1.5em;
 }
-/* 지금 흐르는 줄 — 왼쪽부터 초록으로 채워지는 노래방 효과 */
+/* 지금 부르고 있는 줄 */
 .chant-lyric--now {
   font-size: clamp(1.25rem, 3.4vw, 1.7rem);
   font-weight: 700;
   letter-spacing: -.02em;
   min-height: 1.5em;
-  background-image: linear-gradient(
-    to right,
-    var(--accent) 0%,
-    var(--accent) var(--sung, 0%),
-    var(--text) var(--sung, 0%),
-    var(--text) 100%
-  );
-  -webkit-background-clip: text;
-          background-clip: text;
-  color: transparent;
+  color: var(--text);
 }
 
 /* ② 응원 자리 — 높이를 고정해서 구간이 떠도 화면이 안 튑니다 */
