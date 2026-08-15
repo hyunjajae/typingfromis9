@@ -278,6 +278,21 @@ function feature(name) {
   return FEATURES[name] !== false;
 }
 
+/* ---- 나 전용 기능이 켜져 있는지 ----
+   싱크 조정 화면, 키보드 박자 테스트, 결과 화면의 타이밍 다듬기처럼
+   곡 데이터를 고치거나 판정 자체를 바꾸는 것들입니다.
+
+   보통은 꺼둡니다. 두 가지 이유가 있습니다.
+     - 곡 데이터를 손보는 건 만드는 사람이 할 일입니다.
+     - 판정 범위를 누구나 넓힐 수 있으면 랭킹이 공평하지 않습니다.
+
+   켜는 법 : data/features.js 의 devTune 을 true 로,
+             또는 주소 뒤에 #tune 을 붙이면 그 판에서만 켜집니다. */
+function isDev() {
+  if (typeof FEATURES !== "undefined" && FEATURES.devTune) return true;
+  return location.hash === "#tune";
+}
+
 /** 아직 공개하지 않은 기능을 화면에서 감춥니다. */
 function applyFeatureFlags() {
   // ── 인트로 퀴즈 ──
@@ -1564,10 +1579,21 @@ const Chant = (() => {
   const TUNE_DEFAULT = { offset: 0.3, tol: 0.5 };
   let tune = Object.assign({}, TUNE_DEFAULT);
 
+  /* 저장해둔 값 불러오기.
+
+     인정 범위(tol)는 누구나 잠깐 멈춤에서 맞출 수 있으니 그대로 씁니다.
+     타이밍 보정(offset)은 곡 싱크를 맞추는 값이라 나 전용입니다.
+     그래서 평소에는 기본값으로 되돌립니다 — 예전에 맞춰둔 값이 남아서
+     남들과 다른 판정으로 돌아가면 안 되니까요. */
   function loadTune() {
+    tune = Object.assign({}, TUNE_DEFAULT);
     try {
       const raw = localStorage.getItem(TUNE_KEY);
-      if (raw) tune = Object.assign({}, TUNE_DEFAULT, JSON.parse(raw));
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (typeof saved.tol === "number") tune.tol = saved.tol;
+        if (isDev() && typeof saved.offset === "number") tune.offset = saved.offset;
+      }
     } catch (e) { tune = Object.assign({}, TUNE_DEFAULT); }
   }
   function saveTune() {
@@ -1592,6 +1618,7 @@ const Chant = (() => {
   let method = null;       // 지금 쓰고 있는 입력 방식
   let onsetLog = [];       // 구간마다 "실제로 언제 소리를 냈는지" (타이밍 다듬기용)
   let lastEnd = 0;         // 직전 구간의 판정이 실제로 끝난 시각
+  let paused = false;      // 잠깐 멈춤
 
   const input = $("#chantInput");
   const elLine = $("#chantLine");
@@ -1792,6 +1819,8 @@ const Chant = (() => {
     },
 
     onLiveEnd() { this.lastT = 0; this.wasLoud = false; },
+    /** 멈췄다 이어서 할 때 — 멈춘 동안의 시간·누름 상태를 지웁니다 */
+    onResume() { this.lastT = 0; this.wasLoud = false; },
     cleanup() { Voice.close(); }
   };
 
@@ -1909,7 +1938,7 @@ const Chant = (() => {
     paintVideoBtns();
     $("#howNote").hidden = true;
     // 마이크 없이 타이밍만 확인해보는 길 (나 전용)
-    $("#howKeyLine").hidden = !(FEATURES && FEATURES.devTune);
+    $("#howKeyLine").hidden = !isDev();
     paintHowCover(s);
     setStageBg(s.cover);       // 화면 전체에도 앨범 커버를 흐리게 깝니다
     showScreen("screen-chant-how");
@@ -1939,11 +1968,26 @@ const Chant = (() => {
     return m ? m[1] : "";
   }
 
+  /* ---- 시작 시각 ----
+     유튜브에서 "공유 → 현재 시간부터" 로 복사하면 주소에 t=1m30s 가 붙습니다.
+     그걸 그대로 붙여넣으면 응원법이 나오는 대목부터 재생됩니다.
+     (API 나 키가 필요 없습니다. 주소만 있으면 됩니다) */
+  function ytStart(url) {
+    const m = String(url).match(/[?&#](?:t|start)=([^&#]+)/);
+    if (!m) return 0;
+    const v = m[1];
+    if (/^\d+$/.test(v)) return parseInt(v, 10);          // t=90
+    const hms = v.match(/(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/); // t=1m30s
+    return (+(hms[1] || 0)) * 3600 + (+(hms[2] || 0)) * 60 + (+(hms[3] || 0));
+  }
+
   function openVideo() {
     if (!song || !song.chantVideo) return;
     const id = ytId(song.chantVideo);
+    const at = ytStart(song.chantVideo);
     $("#videoBox").innerHTML = id
-      ? '<iframe src="https://www.youtube.com/embed/' + id + '?rel=0" ' +
+      ? '<iframe src="https://www.youtube.com/embed/' + id + "?rel=0" +
+        (at ? "&start=" + at : "") + '" ' +
         'title="응원법 영상" allowfullscreen ' +
         'allow="accelerometer; encrypted-media; picture-in-picture"></iframe>'
       : "";
@@ -2043,6 +2087,7 @@ const Chant = (() => {
     $("#btnChantStart").disabled = true;
     $("#micAdjust").value = String(Voice.getAdjust());
     paintAdjustLabel();
+    $("#micSyncBox").hidden = !isDev();     // 판정을 바꾸는 값이라 나 전용
     fillTuneInputs();
     setStageBg(song.cover);
     showScreen("screen-chant-ready");
@@ -2179,6 +2224,8 @@ const Chant = (() => {
     missed = [];
     onsetLog = [];
     lastEnd = 0;
+    paused = false;
+    $("#pauseModal").hidden = true;
 
     $("#chantSongTitle").textContent = s.title;
     $("#chantTotal").textContent = list.length;
@@ -2296,6 +2343,19 @@ const Chant = (() => {
      오디오의 timeupdate 로도 똑같이 확인합니다. */
   function step() {
     if (!running) return;
+
+    /* 멈춰 있는 동안에는 판정을 하지 않습니다.
+       다만 음성이면 소리 크기는 계속 재줍니다 — 멈춘 김에
+       민감도를 맞춰보려면 게이지가 살아 있어야 하니까요. */
+    if (paused) {
+      if (mode === "voice") {
+        Voice.update();
+        Voice.paintGauge($("#pauseBar"), $("#pauseZone"), $("#pauseHint"));
+        paintPauseRead();
+      }
+      return;
+    }
+
     const now = Audio9.time;
 
     // 마감을 지난 구간은 놓친 것으로 처리 (건너뛰기로 여러 개가 밀렸을 수도 있음)
@@ -2530,6 +2590,8 @@ const Chant = (() => {
 
   function paintTuneBox() {
     const box = $("#tuneBox");
+    // 곡 데이터를 고치는 기능이라 나 전용입니다
+    if (!isDev()) { box.hidden = true; return; }
     const rep = tuneReport();
     if (!rep) { box.hidden = true; return; }
     box.hidden = false;
@@ -2582,8 +2644,67 @@ const Chant = (() => {
     return "    chants: [\n" + lines.join("\n") + "\n    ]";
   }
 
+  /* =====================================================================
+     잠깐 멈춤
+     ---------------------------------------------------------------------
+     노래와 판정을 같이 멈춥니다. 시각은 Audio9 에서 그대로 가져오므로
+     멈춰 있는 동안 시간이 흐르지 않고, 이어서 하면 그 자리부터 계속됩니다.
+
+     멈춘 김에 민감도와 인정 범위를 맞춰볼 수 있게 해뒀습니다.
+     연습하다가 "안 먹네" 싶을 때 처음부터 다시 할 필요가 없도록요. */
+
+  function paintPauseRead() {
+    const el = $("#pauseRead");
+    if (Voice.isSilent()) {
+      el.textContent = "마이크에서 소리가 들어오지 않습니다.";
+      el.className = "mic-read is-ng";
+    } else {
+      el.textContent = "조용할 때 " + Voice.noiseFloor.toFixed(0) +
+        " · 지금 " + Voice.level.toFixed(0) +
+        " · 넘어야 하는 값 " + Voice.threshold().toFixed(0) + " dB";
+      el.className = "mic-read";
+    }
+  }
+
+  function paintPauseLabels() {
+    const v = Number($("#pauseMic").value);
+    $("#pauseMicVal").textContent =
+      v <= -6 ? "많이 민감" : v < 0 ? "민감" : v === 0 ? "보통" : v < 6 ? "둔감" : "많이 둔감";
+    $("#pauseTolVal").textContent = "±" + tune.tol.toFixed(2) + "초";
+    $("#pauseOffsetVal").textContent =
+      (tune.offset >= 0 ? "+" : "−") + Math.abs(tune.offset).toFixed(2) + "초";
+  }
+
+  function pause() {
+    if (!running || paused) return;
+    paused = true;
+    Audio9.pause();
+
+    const isVoice = mode === "voice";
+    $("#pauseVoiceBox").hidden = !isVoice;
+    $("#pauseTimingBox").hidden = !isDev();
+    if (isVoice) {
+      $("#pauseMic").value = String(Voice.getAdjust());
+      $("#pauseTol").value = String(Math.round(tune.tol * 100));
+      $("#pauseOffset").value = String(Math.round(tune.offset * 100));
+      paintPauseLabels();
+    }
+    $("#pauseModal").hidden = false;
+  }
+
+  function resume() {
+    if (!paused) return;
+    $("#pauseModal").hidden = true;
+    paused = false;
+    // 멈춰 있던 동안 흐른 실제 시간은 없던 것으로 (안 그러면 한 박자 튑니다)
+    if (method && method.onResume) method.onResume();
+    Audio9.resume();
+  }
+
   function quit() {
     running = false;
+    paused = false;
+    $("#pauseModal").hidden = true;
     Audio9.stop();
     setStageBg("");
     if (raf) cancelAnimationFrame(raf);
@@ -2620,7 +2741,7 @@ const Chant = (() => {
   });
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") e.preventDefault();
-    if (e.key === "Escape") { quit(); showScreen("screen-chant-select"); }
+    // Esc 는 아래 문서 전체 처리에서 "잠깐 멈춤" 으로 받습니다
   });
 
   // 화면 아무 데나 눌러도 입력창에 포커스가 돌아오게 (타이핑 모드만)
@@ -2653,6 +2774,33 @@ const Chant = (() => {
   });
   $("#btnChantStart").addEventListener("click", () => start(song, "voice"));
   $("#btnReadyToTyping").addEventListener("click", () => { release(); start(song, "typing"); });
+  /* ---- 잠깐 멈춤 ---- */
+  $("#btnPauseChant").addEventListener("click", pause);
+  $("#btnPauseResume").addEventListener("click", resume);
+  $("#btnPauseQuit").addEventListener("click", () => {
+    quit();
+    showScreen("screen-chant-select");
+  });
+  $("#pauseMic").addEventListener("input", () => {
+    Voice.setAdjust(Number($("#pauseMic").value));
+    paintPauseLabels();
+  });
+  $("#pauseTol").addEventListener("input", () => {
+    tune.tol = Number($("#pauseTol").value) / 100;
+    saveTune();
+    paintPauseLabels();
+  });
+  $("#pauseOffset").addEventListener("input", () => {
+    tune.offset = Number($("#pauseOffset").value) / 100;
+    saveTune();
+    paintPauseLabels();
+  });
+  // 연습 중 Esc 로도 멈춥니다
+  document.addEventListener("keydown", (e) => {
+    if (currentScreen !== "screen-chant" || !running) return;
+    if (e.key === "Escape") { e.preventDefault(); paused ? resume() : pause(); }
+  });
+
   $("#micPick").addEventListener("change", switchMic);
   $("#micNoAec").addEventListener("change", switchMic);
   $("#micAdjust").addEventListener("input", () => {
@@ -3683,9 +3831,13 @@ function init() {
      주소 뒤에 #tune 을 붙이면 열립니다. features.js 의 devTune 을 켜면
      시작 화면 아래에도 링크가 생깁니다. */
   Tune.init();
-  if (FEATURES && FEATURES.devTune) $("#homeTuneLink").hidden = false;
+  $("#homeTuneLink").hidden = !isDev();
   $("#btnOpenTune").addEventListener("click", () => Tune.open());
-  const openTuneIfHash = () => { if (location.hash === "#tune") Tune.open(); };
+  const openTuneIfHash = () => {
+    // 주소로 켰을 때도 시작 화면 링크가 같이 보이게
+    $("#homeTuneLink").hidden = !isDev();
+    if (location.hash === "#tune") Tune.open();
+  };
   window.addEventListener("hashchange", openTuneIfHash);
   openTuneIfHash();
 

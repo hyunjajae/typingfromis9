@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 9;
+      var VER = 10;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -520,6 +520,9 @@
         </label>
         <p class="mic-adjust__help">잘 인식이 안 되면 왼쪽으로, 가만히 있어도 반응하면 오른쪽으로 옮기세요.</p>
 
+        <!-- 판정 자체를 바꾸는 값들이라 나 전용입니다.
+             누구나 만질 수 있으면 랭킹이 공평하지 않습니다. -->
+        <div id="micSyncBox" hidden>
         <hr class="mic-sep" />
 
         <label class="mic-adjust">
@@ -540,6 +543,7 @@
         <p class="mic-adjust__help">
           좁힐수록 박자를 정확히 맞춰야 합니다. 연습이 익숙해지면 줄여보세요.
         </p>
+        </div>
       </div>
 
       <p class="ready-error" id="readyError" hidden></p>
@@ -565,6 +569,7 @@
         </div>
         <div class="play-head__actions">
           <span class="badge badge--warn" id="chantNoAudio" hidden>오디오 파일 없음</span>
+          <button class="ghost-btn" id="btnPauseChant" type="button">❚❚ 잠깐 멈춤</button>
           <button class="ghost-btn" id="btnQuitChant" type="button">그만두기</button>
         </div>
       </div>
@@ -819,6 +824,55 @@
     </div>
   </div>
 
+  <!-- ============ 잠깐 멈춤 (응원법) ============ -->
+  <div class="modal" id="pauseModal" hidden>
+    <div class="modal__box">
+      <h3 class="modal__title">잠깐 멈췄어요</h3>
+      <p class="modal__desc">이어서 하면 멈춘 자리부터 계속됩니다.</p>
+
+      <!-- 음성일 때만 : 멈춘 김에 소리를 내보며 맞춰볼 수 있게 -->
+      <div id="pauseVoiceBox" hidden>
+        <p class="mic-test__label">소리를 내보면서 맞춰보세요</p>
+        <div class="vol-gauge">
+          <div class="vol-gauge__track">
+            <div class="vol-gauge__zone" id="pauseZone"></div>
+            <div class="vol-gauge__bar" id="pauseBar"></div>
+          </div>
+        </div>
+        <p class="vol-gauge__hint" id="pauseHint"></p>
+        <p class="mic-read" id="pauseRead"></p>
+
+        <label class="mic-adjust">
+          <span>인식 민감도</span>
+          <input type="range" id="pauseMic" min="-10" max="10" step="1" value="0" />
+          <b id="pauseMicVal">보통</b>
+        </label>
+        <p class="mic-adjust__help">잘 인식이 안 되면 왼쪽으로, 가만히 있어도 반응하면 오른쪽으로.</p>
+
+        <label class="mic-adjust">
+          <span>인정 범위</span>
+          <input type="range" id="pauseTol" min="25" max="100" step="5" value="50" />
+          <b id="pauseTolVal">±0.50초</b>
+        </label>
+        <p class="mic-adjust__help">좁힐수록 박자를 정확히 맞춰야 합니다.</p>
+
+        <!-- 나 전용 -->
+        <div id="pauseTimingBox" hidden>
+          <label class="mic-adjust">
+            <span>외치는 타이밍</span>
+            <input type="range" id="pauseOffset" min="-60" max="60" step="5" value="30" />
+            <b id="pauseOffsetVal">+0.30초</b>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal__btns">
+        <button class="ghost-btn" id="btnPauseQuit" type="button">그만두기</button>
+        <button class="solid-btn" id="btnPauseResume" type="button">이어서 하기</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ 응원법 영상 창 ============ -->
   <div class="modal" id="videoModal" hidden>
     <div class="modal__box modal__box--wide">
@@ -848,7 +902,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 9;
+      var VER = 10;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
