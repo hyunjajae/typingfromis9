@@ -1182,6 +1182,239 @@ html[data-theme="dark"] .skip-toast__btn { color: #06120d; }
   .chant-up { font-size: 12.5px; padding: 5px 11px; }
 }
 
+/* ---------- 9-b. 음성 모드 ---------- */
+
+/* ---- 입력 방식 고르는 카드 ----
+   시작 화면의 모드 카드와 같은 문법을 씁니다.
+   미리보기 뒤에는 지금 고른 곡의 앨범 커버를 흐리게 깝니다(JS가 --how-cover 를 채움). */
+.how-grid { grid-template-columns: repeat(2, 1fr); }
+.how-card { cursor: pointer; }
+
+.demo--how::before {
+  content: "";
+  position: absolute;
+  inset: -40px;
+  background-image: var(--how-cover, none);
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) saturate(1.3);
+  opacity: .5;
+}
+html[data-theme="dark"] .demo--how::before { opacity: .34; }
+
+/* 글자가 읽히도록 위아래를 덮습니다 */
+.demo--how::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom,
+              rgba(var(--bg-rgb), .58) 0%,
+              rgba(var(--bg-rgb), .32) 50%,
+              rgba(var(--bg-rgb), .8) 100%);
+}
+.demo--how > * { position: relative; z-index: 1; }
+
+/* 음성 카드 미리보기 : 마이크 + 차오르는 음량 막대 */
+.demo-voice { display: flex; align-items: center; gap: 12px; }
+.demo-voice__mic { font-size: 20px; line-height: 1; }
+.demo-voice__gauge {
+  width: 150px; height: 10px;
+  border-radius: 999px;
+  background-color: var(--line);
+  overflow: hidden;
+}
+.demo-voice__gauge i {
+  display: block;
+  height: 100%;
+  width: 20%;
+  border-radius: 999px;
+  background-color: var(--accent);
+  animation: demo-shout 1.9s var(--ease) infinite;
+}
+@keyframes demo-shout {
+  0%, 100% { width: 14%; }
+  35%      { width: 88%; }
+  60%      { width: 62%; }
+}
+@media (prefers-reduced-motion: reduce) { .demo-voice__gauge i { animation: none; width: 72%; } }
+
+.how-note {
+  margin: 18px auto 0;
+  max-width: 560px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-soft);
+}
+
+/* ---- 준비 화면 : 세 단계 ---- */
+.ready-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 620px;
+  margin: 26px auto 0;
+}
+.ready-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background-color: var(--surface);
+  transition: border-color .25s var(--ease);
+}
+.ready-step.is-done { border-color: var(--accent); }
+.ready-step.is-ng { border-color: var(--wrong); }
+
+.ready-step__no {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background-color: var(--line);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 800;
+}
+.ready-step.is-done .ready-step__no { background-color: var(--accent); color: #fff; }
+html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
+
+.ready-step__body { flex: 1 1 auto; min-width: 0; }
+.ready-step__title { margin: 2px 0 4px; font-size: 15px; font-weight: 700; }
+.ready-step__desc { margin: 0; font-size: 13.5px; line-height: 1.65; color: var(--text-soft); }
+.ready-step__mark { flex: 0 0 auto; font-size: 18px; color: var(--muted); }
+
+/* 소음 재는 동안 차오르는 막대 */
+.calib-bar {
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 4px;
+  background-color: var(--line);
+  overflow: hidden;
+}
+.calib-bar__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background-color: var(--accent);
+}
+
+.ready-error {
+  max-width: 620px;
+  margin: 16px auto 0;
+  padding: 14px 18px;
+  border: 1px solid var(--wrong);
+  border-radius: var(--radius-m, 14px);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--wrong);
+}
+
+/* ---- 소리 테스트 ---- */
+.mic-test {
+  max-width: 620px;
+  margin: 22px auto 0;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background-color: var(--surface);
+}
+.mic-test__label {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+/* ---- 목소리 크기 게이지 (준비 화면 · 플레이 화면 공용) ---- */
+.vol-gauge { width: 100%; }
+.vol-gauge__track {
+  position: relative;
+  height: 14px;
+  border-radius: 999px;
+  background-color: var(--line);
+  overflow: hidden;
+}
+/* 여기까지 올리면 인정되는 구간 */
+.vol-gauge__zone {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 60%;
+  width: 40%;
+  background-color: var(--accent);
+  opacity: .18;
+}
+.vol-gauge__bar {
+  position: relative;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background-color: var(--muted);
+  transition: width .06s linear, background-color .12s var(--ease);
+}
+.vol-gauge__bar.is-loud { background-color: var(--accent); }
+
+.vol-gauge__hint {
+  margin: 8px 0 0;
+  min-height: 20px;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity .2s var(--ease);
+}
+.vol-gauge__hint.is-on { opacity: 1; color: var(--wrong); }
+
+/* 플레이 화면에 놓일 때는 조금 좁고 얇게 */
+.vol-gauge--play { width: min(460px, 78%); margin: 4px auto 0; }
+.vol-gauge--play .vol-gauge__track { height: 10px; }
+
+/* ---- 민감도 슬라이더 ---- */
+.mic-adjust {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+.mic-adjust input { flex: 1 1 auto; accent-color: var(--accent); cursor: pointer; }
+.mic-adjust b { flex: 0 0 auto; min-width: 52px; text-align: right; color: var(--text); }
+.mic-adjust__help {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ---- 응원법 영상 창 ---- */
+.modal__box--wide { width: min(720px, 100%); }
+.video-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-m, 14px);
+  background-color: var(--line);
+  overflow: hidden;
+}
+.video-box iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+@media (max-width: 760px) {
+  .how-grid { grid-template-columns: 1fr; }
+  .demo--how { height: 140px; }
+}
+
+@media (max-width: 560px) {
+  .ready-step { padding: 15px 16px; gap: 11px; }
+  .mic-test { padding: 16px 16px; }
+  .vol-gauge--play { width: 88%; }
+}
+
 /* ---------- 10. 퀴즈 무대 ---------- */
 /* ---- 정답 공개 판 (앨범 커버) ---- */
 .quiz-reveal {

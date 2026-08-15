@@ -372,6 +372,135 @@
       <div class="song-grid" id="chantGrid"></div>
     </section>
 
+    <!-- ============ 화면 9-b : 입력 방식 고르기 ============ -->
+    <section class="screen" id="screen-chant-how">
+      <div class="page-head">
+        <p class="page-head__eyebrow">모드 01</p>
+        <h2 class="page-head__title" id="chantHowTitle">어떻게 연습할까요?</h2>
+        <p class="page-head__sub">둘 다 같은 응원법으로 연습합니다. 지금 있는 곳에 맞춰 고르세요.</p>
+      </div>
+
+      <div class="mode-grid how-grid">
+        <button class="mode-card how-card" id="btnHowVoice" type="button">
+          <span class="mode-card__demo demo--how" id="howDemoVoice">
+            <span class="demo-voice">
+              <span class="demo-voice__mic">🎤</span>
+              <span class="demo-voice__gauge"><i></i></span>
+            </span>
+            <span class="demo-line">
+              <span class="demo-ch is-ok">프</span><span class="demo-ch is-ok">로</span><span class="demo-ch is-ok">미</span><span class="demo-ch is-ok">스</span><span class="demo-ch is-cur">나</span><span class="demo-ch">인</span>
+            </span>
+            <span class="demo-caption">외치는 만큼 글자가 채워집니다</span>
+          </span>
+          <span class="mode-card__body">
+            <span class="mode-card__no">음성</span>
+            <span class="mode-card__title">직접 외치기</span>
+            <span class="mode-card__desc">
+              마이크에 대고 실제로 외칩니다.<br />실전에 가장 가까운 연습이에요.
+            </span>
+            <span class="mode-card__go">소리를 낼 수 있는 곳에서 →</span>
+          </span>
+        </button>
+
+        <button class="mode-card how-card" id="btnHowTyping" type="button">
+          <span class="mode-card__demo demo--how" id="howDemoTyping">
+            <span class="demo-chant">
+              <span class="demo-chant__bar"><i></i></span>
+            </span>
+            <span class="demo-line">
+              <span class="demo-ch is-ok">프</span><span class="demo-ch is-ok">로</span><span class="demo-ch is-ok">미</span><span class="demo-ch is-cur">스</span><span class="demo-ch">나</span><span class="demo-ch">인</span>
+            </span>
+            <span class="demo-caption">시간 안에 정확히 치면 성공</span>
+          </span>
+          <span class="mode-card__body">
+            <span class="mode-card__no">타이핑</span>
+            <span class="mode-card__title">키보드로 치기</span>
+            <span class="mode-card__desc">
+              소리를 내지 않고<br />순서와 타이밍만 익힙니다.
+            </span>
+            <span class="mode-card__go">조용한 곳에서 →</span>
+          </span>
+        </button>
+      </div>
+
+      <p class="how-note" id="howNote" hidden></p>
+
+      <div class="btn-row btn-row--lg">
+        <button class="ghost-btn" id="btnChantVideo1" type="button" hidden>▶ 응원법 영상 보기</button>
+        <button class="ghost-btn" id="btnBackToChantSongs" type="button">곡 다시 고르기</button>
+      </div>
+    </section>
+
+    <!-- ============ 화면 9-c : 음성 준비 ============ -->
+    <section class="screen" id="screen-chant-ready">
+      <div class="page-head">
+        <p class="page-head__eyebrow">준비</p>
+        <h2 class="page-head__title" id="chantReadyTitle">마이크를 준비할게요</h2>
+      </div>
+
+      <div class="ready-steps">
+        <div class="ready-step" id="stepMic">
+          <span class="ready-step__no">1</span>
+          <div class="ready-step__body">
+            <p class="ready-step__title">마이크 사용 허락</p>
+            <p class="ready-step__desc" id="micDesc">브라우저가 물어보면 "허용"을 눌러주세요.</p>
+          </div>
+          <span class="ready-step__mark" id="micMark">…</span>
+        </div>
+
+        <div class="ready-step" id="stepEar">
+          <span class="ready-step__no">2</span>
+          <div class="ready-step__body">
+            <p class="ready-step__title">이어폰을 껴주세요</p>
+            <p class="ready-step__desc">
+              스피커로 들으면 노래 소리가 마이크에 들어가 잘못 인식될 수 있어요.
+              이어폰이 없으면 노래 볼륨을 낮춰주세요.
+            </p>
+          </div>
+          <span class="ready-step__mark">🎧</span>
+        </div>
+
+        <div class="ready-step" id="stepCalib">
+          <span class="ready-step__no">3</span>
+          <div class="ready-step__body">
+            <p class="ready-step__title">조용한 정도 재기</p>
+            <p class="ready-step__desc" id="calibDesc">
+              2초 동안 <b>아무 말도 하지 말아 주세요.</b> 방이 얼마나 조용한지 재서 기준을 잡습니다.
+            </p>
+            <div class="calib-bar"><div class="calib-bar__fill" id="calibFill"></div></div>
+          </div>
+          <span class="ready-step__mark" id="calibMark">…</span>
+        </div>
+      </div>
+
+      <!-- 소리 테스트 -->
+      <div class="mic-test" id="micTest" hidden>
+        <p class="mic-test__label">한번 외쳐보세요 — 초록 구간까지 올라가면 됩니다</p>
+        <div class="vol-gauge">
+          <div class="vol-gauge__track">
+            <div class="vol-gauge__zone" id="testZone"></div>
+            <div class="vol-gauge__bar" id="testBar"></div>
+          </div>
+        </div>
+        <p class="vol-gauge__hint" id="testHint"></p>
+
+        <label class="mic-adjust">
+          <span>인식 민감도</span>
+          <input type="range" id="micAdjust" min="-10" max="10" step="1" value="0" />
+          <b id="micAdjustVal">보통</b>
+        </label>
+        <p class="mic-adjust__help">잘 인식이 안 되면 왼쪽으로, 가만히 있어도 반응하면 오른쪽으로 옮기세요.</p>
+      </div>
+
+      <p class="ready-error" id="readyError" hidden></p>
+
+      <div class="btn-row btn-row--lg">
+        <button class="solid-btn" id="btnChantStart" type="button" disabled>시작하기</button>
+        <button class="ghost-btn" id="btnChantVideo2" type="button" hidden>▶ 응원법 영상 보기</button>
+        <button class="ghost-btn" id="btnReadyToTyping" type="button">타이핑으로 하기</button>
+      </div>
+    </section>
+
     <!-- ============ 화면 10 : 응원법 플레이 ============ -->
     <section class="screen screen--play" id="screen-chant">
       <div class="play-head">
@@ -421,13 +550,22 @@
           <input class="type-input chant-input" id="chantInput" type="text"
                  autocomplete="off" autocorrect="off" autocapitalize="off"
                  spellcheck="false" aria-label="응원법 입력" />
+
+          <!-- 음성 모드에서만 : 지금 내 목소리가 얼마나 큰지 -->
+          <div class="vol-gauge vol-gauge--play" id="chantGauge" hidden>
+            <div class="vol-gauge__track">
+              <div class="vol-gauge__zone" id="chantZone"></div>
+              <div class="vol-gauge__bar" id="chantBar"></div>
+            </div>
+            <p class="vol-gauge__hint" id="chantGaugeHint"></p>
+          </div>
         </div>
 
         <!-- ③ 앞으로 올 응원 두 개 -->
         <div class="chant-upcoming" id="chantUpcoming" hidden></div>
       </div>
 
-      <p class="hint-line">노래는 멈추지 않습니다 · 구간이 뜨면 시간 안에 정확히 치세요</p>
+      <p class="hint-line" id="chantHint">노래는 멈추지 않습니다 · 구간이 뜨면 시간 안에 정확히 치세요</p>
     </section>
 
     <!-- ============ 화면 11 : 응원법 결과 ============ -->
@@ -487,6 +625,10 @@
         <button class="rank-tab" id="tabLyrics" type="button">가사 타이핑</button>
         <button class="rank-tab" id="tabChant" type="button">응원법 타이핑</button>
         <select class="rank-song" id="rankSong" hidden></select>
+        <select class="rank-song" id="rankInput" hidden>
+          <option value="voice">🎤 외치기</option>
+          <option value="typing">⌨️ 타이핑</option>
+        </select>
         <span class="spacer"></span>
         <button class="ghost-btn ghost-btn--sm" id="btnRankRefresh" type="button">새로고침</button>
       </div>
@@ -520,6 +662,25 @@
     </div>
   </div>
 
+  <!-- ============ 응원법 영상 창 ============ -->
+  <div class="modal" id="videoModal" hidden>
+    <div class="modal__box modal__box--wide">
+      <h3 class="modal__title">응원법 먼저 보기</h3>
+      <p class="modal__desc">
+        어디서 무슨 말을 외치는지 눈으로 익힌 뒤에 시작하면 훨씬 쉽습니다.<br />
+        <b>연습 중에는 이 영상이 나오지 않습니다.</b>
+      </p>
+      <div class="video-box" id="videoBox"></div>
+      <p class="modal__err" id="videoErr" hidden>
+        영상이 안 보이면
+        <a id="videoLink" href="#" target="_blank" rel="noopener">유튜브에서 열기</a>
+      </p>
+      <div class="modal__btns">
+        <button class="solid-btn" id="btnVideoClose" type="button">다 봤어요</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 곡 데이터 → 게임 로직 순서로 불러옵니다.
        로컬에서 작업할 때 브라우저가 옛날 파일을 캐시해서
        songs.js 를 고쳐도 반영이 안 되는 일이 흔합니다.
@@ -531,7 +692,8 @@
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       var bust = dev ? "?t=" + Date.now() : "";
 
-      ["data/features.js", "data/ranking-config.js", "data/result-art.js", "data/songs.js", "game.js"].forEach(function (src) {
+      ["data/features.js", "data/ranking-config.js", "data/result-art.js", "data/songs.js",
+       "voice-input.js", "game.js"].forEach(function (src) {
         var el = document.createElement("script");
         el.src = src + bust;
         el.async = false;          // 적어둔 순서대로 실행되게 합니다

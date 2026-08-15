@@ -320,6 +320,8 @@ const BACK_TO = {
   "screen-quiz-result": "screen-quiz-intro",
   "screen-ranking": "screen-home",
   "screen-chant-select": "screen-home",
+  "screen-chant-how": "screen-chant-select",
+  "screen-chant-ready": "screen-chant-how",
   "screen-chant": "screen-chant-select",
   "screen-chant-result": "screen-chant-select"
 };
@@ -352,6 +354,10 @@ function goBack() {
   if (currentScreen === "screen-lyrics") Lyrics.quit();
   if (currentScreen === "screen-quiz") Quiz.quit();
   if (currentScreen === "screen-chant") Chant.quit();
+  if (currentScreen === "screen-chant-ready" || currentScreen === "screen-chant-how") {
+    Chant.release();
+    if (currentScreen === "screen-chant-how") setStageBg("");
+  }
   if (currentScreen === "screen-lyrics-result" || currentScreen === "screen-chant-result") setStageBg("");
 
   if (to === "screen-home") { goHome(); return; }
@@ -1525,8 +1531,13 @@ const Quiz = (() => {
 const Chant = (() => {
   // 구간이 몇 초 전에 미리 뜰지 / 응원 시각이 지난 뒤 몇 초까지 인정할지
   const LEAD = 1.8;
-  const GRACE = 3.0;
+  const GRACE = 3.0;       // 타이핑 : 응원 시각이 지난 뒤 봐주는 시간
   const GAP = 0.15;        // 다음 구간과 겹치지 않게 두는 최소 간격
+
+  // 음성 전용. 외치는 데 걸리는 시간에 이만큼만 더 얹어줍니다.
+  const VOICE_SLACK = 0.7;
+  // 음성은 살짝 먼저 지르는 게 자연스러워서 앞쪽으로만 조금 열어둡니다.
+  const VOICE_EARLY = 0.3;
 
   let song = null;
   let list = [];           // 이 곡의 응원 구간들
@@ -1541,6 +1552,8 @@ const Chant = (() => {
   let verdictTimer = null;
   let words = [];          // 이 곡의 가사 (읽기용)
   let wordIdx = -1;        // 지금 흐르고 있는 가사 줄
+  let mode = "typing";     // "typing" | "voice"
+  let method = null;       // 지금 쓰고 있는 입력 방식
 
   const input = $("#chantInput");
   const elLine = $("#chantLine");
@@ -1548,8 +1561,24 @@ const Chant = (() => {
   /* ---- 구간의 시작·마감 시각 ----
      앞뒤 구간과 겹치지 않도록 자동으로 좁힙니다.
      (DM 처럼 2초 간격으로 붙어 있는 구간이 있어서 꼭 필요합니다) */
+  /* ---- 이 구간을 외치는 데 걸리는 시간 ----
+     띄어쓰기는 실제로는 숨 쉬는 자리라 세지 않습니다. */
+  function needOf(i) {
+    const chars = list[i].text.replace(/\s+/g, "").length;
+    return Math.max(0.3, chars * 0.15);
+  }
+
+  /* ---- 응원 시각이 지난 뒤 몇 초까지 봐줄지 ----
+     타이핑은 치는 속도가 사람마다 달라서 넉넉히 3초를 줍니다.
+     음성은 다릅니다. 응원법은 외치는 타이밍이 딱 정해져 있어서
+     늦게 외치면 그건 사실 틀린 겁니다. 그래서 "외칠 만큼 + 반응할 짬" 만 줍니다. */
+  function graceOf(i) {
+    if (mode !== "voice") return GRACE;
+    return Math.max(1.2, needOf(i) + VOICE_SLACK);
+  }
+
   function deadlineOf(i) {
-    const own = list[i].time + GRACE;
+    const own = list[i].time + graceOf(i);
     const next = list[i + 1] ? list[i + 1].time - GAP : Infinity;
     return Math.min(own, next);
   }
@@ -1558,6 +1587,112 @@ const Chant = (() => {
     const prev = i > 0 ? deadlineOf(i - 1) : 0;
     return Math.max(own, prev, 0);
   }
+
+  /* ---- "지금 성공으로 쳐줄 수 있는 때인가" ----
+     응원 구간은 LEAD(1.8초) 만큼 미리 떠서 준비할 시간을 줍니다.
+     하지만 그 준비 시간에 미리 다 쳐놓고 성공이 되면 박자 연습이 안 됩니다.
+     그래서 실제 판정은 그 응원이 나와야 하는 시각(time)부터 시작합니다.
+     → 미리 다 쳐놓았다면 time 이 되는 순간 성공으로 넘어갑니다. */
+  function judgeFrom(i) {
+    // 음성은 반 박자 먼저 지르는 게 자연스러워서 앞쪽만 조금 열어둡니다.
+    const start = list[i].time - (mode === "voice" ? VOICE_EARLY : 0);
+    // 응원이 아주 촘촘히 붙어 있으면 마감이 time 보다 앞에 올 수도 있습니다.
+    // 그러면 성공할 방법이 아예 없어지므로, 최소한의 시간은 남겨둡니다.
+    return Math.min(start, deadlineOf(i) - 0.4);
+  }
+  const judgingNow = (now) => now >= judgeFrom(idx);
+
+  /* =====================================================================
+     입력 방식 (타이핑 / 음성)
+     ---------------------------------------------------------------------
+     진행·판정·결과·랭킹은 전부 아래 공통 코드가 처리하고,
+     "성공했는지 어떻게 알아내는가" 만 여기서 갈립니다.
+
+       onLiveStart(c)      구간이 화면에 떴을 때
+       onFrame(now, judge) 매 순간. judge 가 true 면 성공 판정 가능
+       onLiveEnd()         구간이 끝났을 때 (성공이든 놓침이든)
+       enter() / cleanup() 게임 시작 / 게임을 벗어날 때
+     ===================================================================== */
+
+  /* ---- ① 타이핑 : 지금까지와 똑같습니다 ---- */
+  const Typing = {
+    id: "typing",
+    ready: false,          // 다 쳐놓고 time 을 기다리는 중인지
+
+    enter() {
+      input.hidden = false;
+      input.disabled = false;
+      $("#chantGauge").hidden = true;
+      $("#chantHint").textContent = "노래는 멈추지 않습니다 · 구간이 뜨면 시간 안에 정확히 치세요";
+      input.focus();
+    },
+    onLiveStart(c) {
+      this.ready = false;
+      input.value = "";
+      input.maxLength = c.text.length;
+      input.focus();
+    },
+    onFrame(now, judge) {
+      if (judge && this.ready) hit();
+    },
+    onLiveEnd() { this.ready = false; input.value = ""; },
+    cleanup() {}
+  };
+
+  /* ---- ② 음성 : 마이크에 대고 실제로 외칩니다 ----
+     무슨 말을 했는지는 보지 않습니다. 소리를 지르는 발성은 인식률이 낮아서
+     믿을 수 없기 때문입니다. "얼마나 크게, 언제" 냈는지만 봅니다.
+
+     외치는 동안 쌓인 시간이 목표치를 채우면 성공입니다.
+     쌓이는 만큼 글자가 왼쪽부터 채워져서, 알아듣고 있다는 게 눈에 보입니다. */
+  const VoiceMode = {
+    id: "voice",
+    need: 1,               // 이 구간을 성공하려면 외쳐야 하는 시간(초)
+    loud: 0,               // 지금까지 외친 시간
+    shown: -1,             // 화면에 채워둔 글자 수 (같으면 다시 안 그림)
+    lastT: 0,              // 직전 프레임 시각 (초 단위)
+
+    enter() {
+      input.hidden = true;
+      input.disabled = true;
+      $("#chantGauge").hidden = false;
+      $("#chantHint").textContent = "이어폰을 끼고 하세요 · 구간이 뜨면 박자에 맞춰 크게 외치세요";
+    },
+    onLiveStart(c) {
+      // 창이 유난히 좁은 구간(응원이 촘촘히 붙은 곳)에서는 목표를 같이 줄입니다.
+      const win = Math.max(0.5, deadlineOf(idx) - judgeFrom(idx));
+      this.need = Math.min(needOf(idx), win * 0.7);
+      this.loud = 0;
+      this.shown = -1;
+      this.lastT = 0;
+    },
+    onFrame(now, judge) {
+      Voice.update();
+      Voice.paintGauge($("#chantBar"), $("#chantZone"), $("#chantGaugeHint"));
+
+      // 흐른 시간은 실제 시계로 잽니다.
+      // (이 함수는 화면 갱신 때도, 오디오 이벤트 때도 불려서 간격이 일정하지 않습니다)
+      const t = performance.now() / 1000;
+      const dt = this.lastT ? Math.min(0.1, t - this.lastT) : 0;
+      this.lastT = t;
+
+      if (!judge || !live) return;
+      if (Voice.isLoud()) this.loud += dt;
+
+      const text = list[idx].text;
+      const p = Math.min(1, this.loud / this.need);
+      const n = Math.round(p * text.length);
+      if (n !== this.shown) {
+        this.shown = n;
+        renderTypingCells(elLine, text, text.slice(0, n), false);
+      }
+      if (p >= 1) hit();
+    },
+    onLiveEnd() { this.lastT = 0; },
+    cleanup() { Voice.close(); }
+  };
+
+  const methodOf = (m) => (m === "voice" ? VoiceMode : Typing);
 
   /* ---- 곡 목록 ---- */
   function renderSongList() {
@@ -1595,31 +1730,207 @@ const Chant = (() => {
         coverBox.insertBefore(img, fallback.nextSibling);
       }
 
-      const best = loadBest(s.id);
+      const best = bestOfBoth(s.id);
       btn.querySelector(".song-card__title").textContent = s.title;
       btn.querySelector(".song-card__album").textContent = s.album || "";
       btn.querySelector(".song-card__meta").textContent =
         best ? "내 최고 " + best.rate + "%" : s.chants.length + "구간";
-      btn.addEventListener("click", () => start(s));
+      btn.addEventListener("click", () => choose(s));
       grid.appendChild(btn);
     });
   }
 
-  /* ---- 최고 기록 ---- */
+  /* ---- 최고 기록 ----
+     타이핑과 음성은 난이도가 다르므로 따로 저장합니다.
+     (타이핑 쪽은 예전 기록을 그대로 쓰도록 열쇠 이름을 안 바꿨습니다) */
   const BEST_KEY = "f9typing_chant_best_";
-  function loadBest(id) {
+  const bestKey = (id, m) => BEST_KEY + id + (m === "voice" ? "_voice" : "");
+
+  function loadBest(id, m) {
     try {
-      const raw = localStorage.getItem(BEST_KEY + id);
+      const raw = localStorage.getItem(bestKey(id, m));
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
-  function saveBest(id, rec) {
-    try { localStorage.setItem(BEST_KEY + id, JSON.stringify(rec)); } catch (e) {}
+  function saveBest(id, m, rec) {
+    try { localStorage.setItem(bestKey(id, m), JSON.stringify(rec)); } catch (e) {}
+  }
+  /** 곡 목록 카드에 보여줄, 둘 중 더 잘한 기록 */
+  function bestOfBoth(id) {
+    const t = loadBest(id, "typing");
+    const v = loadBest(id, "voice");
+    if (t && v) return v.rate > t.rate ? v : t;
+    return t || v;
+  }
+
+  /* =====================================================================
+     곡을 고른 뒤 ~ 시작하기 전까지
+     ===================================================================== */
+
+  /** 곡을 골랐을 때 : 입력 방식부터 물어봅니다 */
+  function choose(s) {
+    song = s;
+    // 음성 모드를 아직 안 열었으면 예전처럼 바로 타이핑으로 갑니다
+    if (!feature("chantVoice")) { start(s, "typing"); return; }
+
+    $("#chantHowTitle").textContent = s.title + " — 어떻게 연습할까요?";
+    paintVideoBtns();
+    $("#howNote").hidden = true;
+    paintHowCover(s);
+    setStageBg(s.cover);       // 화면 전체에도 앨범 커버를 흐리게 깝니다
+    showScreen("screen-chant-how");
+  }
+
+  /** 미리보기 카드 뒤에 이 곡의 앨범 커버를 깝니다 */
+  function paintHowCover(s) {
+    const url = s.cover ? 'url("' + s.cover + '")' : "none";
+    ["#howDemoVoice", "#howDemoTyping"].forEach((sel) => {
+      $(sel).style.setProperty("--how-cover", url);
+    });
+  }
+
+  /** 응원법 영상 버튼은 그 곡에 영상 주소가 있을 때만 보입니다 */
+  function paintVideoBtns() {
+    const has = !!(song && song.chantVideo);
+    $("#btnChantVideo1").hidden = !has;
+    $("#btnChantVideo2").hidden = !has;
+  }
+
+  /* ---- 유튜브 주소에서 영상 번호만 뽑기 ----
+     watch?v= / youtu.be/ / shorts/ / embed/ 어떤 형태로 붙여넣어도 되게 합니다. */
+  function ytId(url) {
+    const m = String(url).match(
+      /(?:youtu\.be\/|v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{6,})/
+    );
+    return m ? m[1] : "";
+  }
+
+  function openVideo() {
+    if (!song || !song.chantVideo) return;
+    const id = ytId(song.chantVideo);
+    $("#videoBox").innerHTML = id
+      ? '<iframe src="https://www.youtube.com/embed/' + id + '?rel=0" ' +
+        'title="응원법 영상" allowfullscreen ' +
+        'allow="accelerometer; encrypted-media; picture-in-picture"></iframe>'
+      : "";
+    // 유튜브가 임베드를 막아둔 영상도 있어서 대체 링크를 항상 같이 둡니다
+    $("#videoLink").href = song.chantVideo;
+    $("#videoErr").hidden = false;
+    $("#videoModal").hidden = false;
+  }
+  function closeVideo() {
+    $("#videoBox").innerHTML = "";      // 비우면 영상도 같이 멈춥니다
+    $("#videoModal").hidden = true;
+  }
+
+  /* ---- 음성 준비 화면 ---- */
+  let testRaf = null;
+
+  function stepMark(sel, mark, state) {
+    const el = $(sel);
+    el.classList.remove("is-done", "is-ng");
+    if (state) el.classList.add(state);
+    if (mark) $(mark).textContent = state === "is-done" ? "✓" : state === "is-ng" ? "✕" : "…";
+  }
+
+  function stopTest() {
+    if (testRaf) cancelAnimationFrame(testRaf);
+    testRaf = null;
+  }
+
+  function testLoop() {
+    Voice.update();
+    Voice.paintGauge($("#testBar"), $("#testZone"), $("#testHint"));
+    testRaf = requestAnimationFrame(testLoop);
+  }
+
+  /* ---- 마이크가 안 열렸을 때, 왜 안 됐는지 알려줍니다 ----
+     원인마다 해야 할 일이 완전히 다릅니다. 뭉뚱그리면 고칠 수가 없어요. */
+  function micErrorHtml(e) {
+    const tail = "<br /><b>지금은 아래 '타이핑으로 하기' 로 연습할 수 있습니다.</b>";
+
+    // ① 파일을 더블클릭해서 연 경우 — 제일 흔합니다
+    if (e && e.code === "INSECURE") {
+      return "<b>이 주소에서는 브라우저가 마이크를 막습니다.</b><br />" +
+        "지금 주소가 <code>" + location.protocol + "//</code> 로 시작하죠? " +
+        "마이크는 <code>https://</code> 나 <code>localhost</code> 에서만 열립니다. " +
+        "허용을 눌러도 아무 일이 일어나지 않는 게 이 때문이에요.<br />" +
+        "→ <b>typingfromis9.kr</b> 에서 열거나, 로컬이면 " +
+        "<code>도구 열기.bat</code> 로 켜고 <code>http://localhost:5660</code> 으로 접속하세요." + tail;
+    }
+    if (e && e.code === "UNSUPPORTED") {
+      return "이 브라우저는 마이크를 지원하지 않습니다. 크롬이나 엣지에서 열어주세요." + tail;
+    }
+
+    // ② 사용자가 거부했거나, 브라우저 설정에서 막혀 있는 경우
+    const name = (e && e.name) || "";
+    if (name === "NotAllowedError" || name === "SecurityError") {
+      return "마이크 사용이 거부됐습니다. 주소창 왼쪽 <b>자물쇠 아이콘 → 마이크 → 허용</b> 으로 바꾼 뒤 " +
+        "새로고침해 주세요." + tail;
+    }
+    // ③ 마이크가 아예 없는 경우
+    if (name === "NotFoundError" || name === "OverconstrainedError") {
+      return "연결된 마이크를 찾지 못했습니다. 마이크가 꽂혀 있는지 확인해 주세요." + tail;
+    }
+    // ④ 다른 앱이 잡고 있는 경우
+    if (name === "NotReadableError" || name === "AbortError") {
+      return "다른 앱이 마이크를 쓰고 있어서 열지 못했습니다. 화상회의·녹음 프로그램을 끄고 다시 해보세요." + tail;
+    }
+    return "마이크를 열지 못했습니다. (" + (name || e.message) + ")" + tail;
+  }
+
+  async function toReady() {
+    $("#chantReadyTitle").textContent = song.title + " — 마이크를 준비할게요";
+    paintVideoBtns();
+    stepMark("#stepMic", "#micMark", null);
+    stepMark("#stepCalib", "#calibMark", null);
+    $("#calibFill").style.width = "0%";
+    $("#micTest").hidden = true;
+    $("#readyError").hidden = true;
+    $("#btnChantStart").disabled = true;
+    $("#micAdjust").value = String(Voice.getAdjust());
+    paintAdjustLabel();
+    setStageBg(song.cover);
+    showScreen("screen-chant-ready");
+
+    // 1) 마이크 허락받기
+    try {
+      await Voice.open();
+    } catch (e) {
+      stepMark("#stepMic", "#micMark", "is-ng");
+      $("#micDesc").textContent = "마이크를 쓸 수 없습니다.";
+      $("#readyError").innerHTML = micErrorHtml(e);
+      $("#readyError").hidden = false;
+      return;
+    }
+    stepMark("#stepMic", "#micMark", "is-done");
+    $("#micDesc").textContent = "마이크를 쓸 수 있습니다.";
+
+    // 2) 방이 얼마나 조용한지 재기
+    await Voice.calibrate((p) => { $("#calibFill").style.width = (p * 100).toFixed(0) + "%"; });
+    stepMark("#stepCalib", "#calibMark", "is-done");
+    $("#calibDesc").textContent = "다 쟀습니다. 이 방 기준으로 맞췄어요.";
+
+    // 3) 소리 테스트
+    $("#micTest").hidden = false;
+    $("#btnChantStart").disabled = false;
+    stopTest();
+    testLoop();
+  }
+
+  function paintAdjustLabel() {
+    const v = Number($("#micAdjust").value);
+    $("#micAdjustVal").textContent =
+      v <= -6 ? "많이 민감" : v < 0 ? "민감" : v === 0 ? "보통" : v < 6 ? "둔감" : "많이 둔감";
   }
 
   /* ---- 시작 ---- */
-  function start(s) {
+  function start(s, m) {
     song = s;
+    mode = m || mode || "typing";
+    method = methodOf(mode);
+    stopTest();
+    closeVideo();
     list = s.chants.slice().sort((a, b) => a.time - b.time);
     words = (s.lyrics || []).slice().sort((a, b) => a.time - b.time);
     wordIdx = -1;
@@ -1652,15 +1963,29 @@ const Chant = (() => {
     setStageBg(s.cover);
 
     showScreen("screen-chant");
+    input.value = "";
+    method.enter();            // 입력 방식마다 다른 화면 준비
     setLive(false);
 
     Audio9.load(s.audio, () => { $("#chantNoAudio").hidden = false; });
     Audio9.play(0);
 
-    input.value = "";
-    input.disabled = false;
-    input.focus();
     tick();
+  }
+
+  /** 결과 화면의 "다시하기" — 방금 하던 방식 그대로 */
+  function retry() {
+    if (!song) return;
+    // 음성인데 마이크가 닫혔으면 준비 화면부터 다시
+    if (mode === "voice" && !Voice.opened) { toReady(); return; }
+    start(song, mode);
+  }
+
+  /** 응원법에서 아주 빠져나갈 때 (곡 바꾸기 등) */
+  function release() {
+    stopTest();
+    closeVideo();
+    Voice.close();
   }
 
   /* ---- 화면 전환 (대기 ↔ 구간) ---- */
@@ -1669,10 +1994,10 @@ const Chant = (() => {
     $("#chantLive").hidden = !on;
     $("#chantIdle").hidden = on;
     if (on) {
-      input.value = "";
-      input.maxLength = list[idx].text.length;
       renderTypingCells(elLine, list[idx].text, "", false);
-      input.focus();
+      method.onLiveStart(list[idx]);
+    } else {
+      method.onLiveEnd();
     }
     paintUpcoming();
   }
@@ -1690,7 +2015,7 @@ const Chant = (() => {
 
   /* ---- 판정 ---- */
   function hit() {
-    if (resolved) return;
+    if (resolved || !live || idx >= list.length) return;
     resolved = true;
     stat.ok++;
     $("#chantOk").textContent = stat.ok;
@@ -1731,6 +2056,12 @@ const Chant = (() => {
     // 이제 나올 구간이 시작할 때가 됐으면 띄웁니다
     if (running && idx < list.length && !live && now >= showAtOf(idx)) {
       setLive(true);
+    }
+
+    // 입력 방식에게 넘깁니다.
+    // 두 번째 값이 true 일 때만 성공으로 쳐줍니다 (준비 시간에는 안 쳐줍니다)
+    if (running && idx < list.length) {
+      method.onFrame(now, live && !resolved && judgingNow(now));
     }
     paint(now);
   }
@@ -1824,16 +2155,19 @@ const Chant = (() => {
 
     const total = list.length;
     const rate = total ? Math.round((stat.ok / total) * 100) : 0;
+    const voice = mode === "voice";
 
+    $("#screen-chant-result .page-head__eyebrow").textContent =
+      voice ? "응원법 외치기 결과" : "응원법 타이핑 결과";
     $("#chantResultTitle").textContent = song.title;
     $("#chantRate").textContent = rate + "%";
     $("#crOk").textContent = stat.ok;
     $("#crMiss").textContent = stat.miss;
     $("#crTotal").textContent = total;
 
-    const prev = loadBest(song.id);
+    const prev = loadBest(song.id, mode);
     const isBest = !prev || rate > prev.rate;
-    if (isBest) saveBest(song.id, { rate: rate, ok: stat.ok, total: total });
+    if (isBest) saveBest(song.id, mode, { rate: rate, ok: stat.ok, total: total });
     $("#crBest").textContent = (isBest ? rate : prev.rate) + "%";
 
     // 놓친 구간 목록
@@ -1855,7 +2189,7 @@ const Chant = (() => {
     }
 
     Share.set({
-      modeLabel: "응원법 타이핑",
+      modeLabel: voice ? "응원법 외치기 🎤" : "응원법 타이핑",
       title: song.title,
       sub: song.album || "",
       color: song.color || "#0f9d76",
@@ -1867,12 +2201,14 @@ const Chant = (() => {
         { label: "놓침", value: String(stat.miss) },
         { label: "전체 구간", value: String(total) }
       ],
-      shareText: "fromis_9 «" + song.title + "» 응원법 " + rate + "% (" + stat.ok + "/" + total + ")\n" +
+      shareText: "fromis_9 «" + song.title + "» 응원법" + (voice ? " 외치기" : "") +
+                 " " + rate + "% (" + stat.ok + "/" + total + ")\n" +
                  "https://typingfromis9.kr\n#fromis_9 #프로미스나인 #플로버"
     });
 
     Ranking.offer({
       mode: "chant",
+      input: mode,               // 음성과 타이핑은 순위를 따로 매깁니다
       songId: song.id,
       rate: rate,
       hits: stat.ok,
@@ -1890,16 +2226,21 @@ const Chant = (() => {
     setStageBg("");
     if (raf) cancelAnimationFrame(raf);
     if (verdictTimer) clearTimeout(verdictTimer);
+    release();
   }
 
-  /* ---- 입력 ---- */
+  /* ---- 입력 (타이핑 모드) ---- */
   function onInput() {
-    if (!running || !live) return;
+    if (!running || !live || mode !== "typing") return;
     if (input.value.length > list[idx].text.length) {
       input.value = input.value.slice(0, list[idx].text.length);
     }
     renderTypingCells(elLine, list[idx].text, input.value, composing);
-    if (!composing && sameLine(input.value, list[idx].text)) hit();
+
+    // 다 쳤는지 표시만 해둡니다.
+    // 실제 성공 처리는 응원 시각(time)이 됐을 때 step() 이 합니다.
+    Typing.ready = !composing && sameLine(input.value, list[idx].text);
+    if (Typing.ready && judgingNow(Audio9.time)) hit();
   }
 
   input.addEventListener("compositionstart", () => { composing = true; });
@@ -1920,16 +2261,41 @@ const Chant = (() => {
     if (e.key === "Escape") { quit(); showScreen("screen-chant-select"); }
   });
 
-  // 화면 아무 데나 눌러도 입력창에 포커스가 돌아오게
+  // 화면 아무 데나 눌러도 입력창에 포커스가 돌아오게 (타이핑 모드만)
   $("#screen-chant").addEventListener("mousedown", (e) => {
-    if (e.target.tagName === "BUTTON") return;
+    if (mode !== "typing" || e.target.tagName === "BUTTON") return;
     setTimeout(() => input.focus(), 0);
   });
 
   // 화면이 가려지면 rAF 가 멈추므로 오디오 이벤트로도 확인합니다
   Audio9.el.addEventListener("timeupdate", () => { if (running) step(); });
 
-  return { renderSongList, start, quit, getSong: () => song };
+  /* ---- 준비 화면 · 영상 창 버튼들 ---- */
+  $("#btnHowVoice").addEventListener("click", toReady);
+  $("#btnHowTyping").addEventListener("click", () => start(song, "typing"));
+  $("#btnBackToChantSongs").addEventListener("click", () => {
+    release();
+    setStageBg("");
+    showScreen("screen-chant-select");
+  });
+  $("#btnChantStart").addEventListener("click", () => start(song, "voice"));
+  $("#btnReadyToTyping").addEventListener("click", () => { release(); start(song, "typing"); });
+  $("#micAdjust").addEventListener("input", () => {
+    Voice.setAdjust(Number($("#micAdjust").value));
+    paintAdjustLabel();
+  });
+  $("#btnChantVideo1").addEventListener("click", openVideo);
+  $("#btnChantVideo2").addEventListener("click", openVideo);
+  $("#btnVideoClose").addEventListener("click", closeVideo);
+  $("#videoModal").addEventListener("mousedown", (e) => {
+    if (e.target.id === "videoModal") closeVideo();     // 바깥을 누르면 닫기
+  });
+
+  return {
+    renderSongList, choose, start, retry, quit, release,
+    getSong: () => song,
+    getMode: () => mode
+  };
 })();
 
 /* ======================= 5-a. 결과 공유 =======================
@@ -2237,6 +2603,7 @@ const Ranking = (() => {
       body.hits = rec.hits;
       body.total = rec.total;
       body.misses = rec.misses;
+      body.input = rec.input === "voice" ? "voice" : "typing";
     }
     const res = await fetch(apiBase() + "/scores", {
       method: "POST",
@@ -2246,11 +2613,11 @@ const Ranking = (() => {
     if (!res.ok) throw new Error("등록 실패 (" + res.status + ")");
   }
 
-  async function fetchTop(mode, songId) {
-    // 응원법 전용 칸(rate/hits/total)은 응원법 조회에서만 요청합니다.
+  async function fetchTop(mode, songId, inputKind) {
+    // 응원법 전용 칸(rate/hits/total/input)은 응원법 조회에서만 요청합니다.
     // 안 그러면 그 칸을 아직 안 만든 상태에서 가사·퀴즈 랭킹까지 막힙니다.
     const cols = mode === "chant"
-      ? "nickname,rate,hits,total,misses,created_at"
+      ? "nickname,rate,hits,total,misses,input,created_at"
       : "nickname,cpm,accuracy,seconds,misses,created_at";
 
     let q = apiBase() + "/scores?select=" + cols +
@@ -2259,6 +2626,8 @@ const Ranking = (() => {
        : mode === "chant" ? "&order=rate.desc,hits.desc"
        : "&order=cpm.desc";
     if (mode !== "quiz" && songId) q += "&song_id=eq." + encodeURIComponent(songId);
+    // 외치기와 타이핑은 난이도가 달라서 순위를 섞지 않습니다
+    if (mode === "chant" && inputKind) q += "&input=eq." + inputKind;
     const res = await fetch(q, { headers: headers() });
     if (!res.ok) throw new Error("불러오기 실패 (" + res.status + ")");
     return res.json();
@@ -2310,7 +2679,7 @@ const Ranking = (() => {
       btn.textContent = "🏆 랭킹에 등록";
       // 응원법은 Supabase 에 칸을 추가해야 등록됩니다 (README 3-b 참고)
       const hint = (pending.mode === "chant" && /40[0-9]/.test(e.message))
-        ? " — 응원법 랭킹은 Supabase 에 SQL 한 번을 더 실행해야 합니다. README 를 봐주세요."
+        ? " — 응원법 랭킹은 Supabase 에 SQL 을 실행해야 합니다. README 의 '응원법 랭킹 켜기' 두 곳을 봐주세요."
         : " — 인터넷 연결이나 Supabase 설정을 확인해 주세요.";
       msg.textContent = e.message + hint;
       msg.className = "submit-box__msg is-ng";
@@ -2329,6 +2698,11 @@ const Ranking = (() => {
     if (!on()) return;
     if (mode !== "quiz" && !feature(mode === "chant" ? "chant" : "lyrics")) mode = "quiz";
     showScreen("screen-ranking");
+
+    // 응원법이면 방금 한 방식(외치기/타이핑)의 순위를 보여줍니다
+    if (mode === "chant" && pending && pending.mode === "chant" && pending.input) {
+      $("#rankInput").value = pending.input;
+    }
     setMode(mode);
     if (songId) { $("#rankSong").value = songId; load(); }
   }
@@ -2339,6 +2713,7 @@ const Ranking = (() => {
     $("#tabLyrics").classList.toggle("is-on", mode === "lyrics");
     $("#tabChant").classList.toggle("is-on", mode === "chant");
     $("#rankSong").hidden = mode === "quiz";
+    $("#rankInput").hidden = !(mode === "chant" && feature("chantVoice"));
     if (mode !== "quiz") fillSongs(mode);
     load();
   }
@@ -2357,17 +2732,27 @@ const Ranking = (() => {
     });
   }
 
+  /* 탭을 빠르게 바꾸면 먼저 보낸 요청이 나중에 도착할 수 있습니다.
+     그러면 가사 기록을 응원법 모양으로 그려버리는 일이 생깁니다.
+     그래서 번호를 매겨두고, 가장 마지막 요청의 답만 화면에 그립니다. */
+  let loadSeq = 0;
+
   async function load() {
     const list = $("#rankList");
+    const my = ++loadSeq;
     list.innerHTML = '<p class="rank-empty">불러오는 중…</p>';
     try {
       const songId = lastMode === "quiz" ? null : $("#rankSong").value;
-      const rows = await fetchTop(lastMode, songId);
+      const inputKind = lastMode === "chant" && feature("chantVoice") ? $("#rankInput").value : null;
+      const rows = await fetchTop(lastMode, songId, inputKind);
+      if (my !== loadSeq) return;          // 그 사이에 다른 탭을 눌렀으면 버립니다
       paint(rows);
     } catch (e) {
+      if (my !== loadSeq) return;
       // 응원법 랭킹은 Supabase 에 칸을 추가해야 동작합니다
       const extra = (lastMode === "chant" && /40[0-9]/.test(e.message))
-        ? '<br /><span style="font-size:13px">응원법 랭킹을 쓰려면 Supabase 에서 SQL 한 번을 더 실행해야 합니다.<br />README 의 "응원법 랭킹 켜기" 를 봐주세요.</span>'
+        ? '<br /><span style="font-size:13px">응원법 랭킹을 쓰려면 Supabase 에서 SQL 을 실행해야 합니다.<br />' +
+          'README 의 "응원법 랭킹 켜기" 와 "응원법 외치기 랭킹 켜기" 를 봐주세요.</span>'
         : "";
       list.innerHTML = '<p class="rank-empty">' + e.message + extra + '</p>';
     }
@@ -2440,6 +2825,7 @@ const Ranking = (() => {
     $("#tabLyrics").addEventListener("click", () => setMode("lyrics"));
     $("#tabChant").addEventListener("click", () => setMode("chant"));
     $("#rankSong").addEventListener("change", load);
+    $("#rankInput").addEventListener("change", load);
     $("#btnRankRefresh").addEventListener("click", load);
 
     $("#btnSubmitLyrics").addEventListener("click", submit);
@@ -2599,8 +2985,12 @@ function init() {
   // ---- 응원법 모드 ----
   $("#btnModeChant").addEventListener("click", () => showScreen("screen-chant-select"));
   $("#btnQuitChant").addEventListener("click", () => { Chant.quit(); showScreen("screen-chant-select"); });
-  $("#btnRetryChant").addEventListener("click", () => Chant.start(Chant.getSong()));
-  $("#btnChangeChantSong").addEventListener("click", () => { setStageBg(""); showScreen("screen-chant-select"); });
+  $("#btnRetryChant").addEventListener("click", () => Chant.retry());
+  $("#btnChangeChantSong").addEventListener("click", () => {
+    Chant.release();
+    setStageBg("");
+    showScreen("screen-chant-select");
+  });
   $("#btnHomeFromChant").addEventListener("click", goHome);
 
   // ---- 시작 화면 ----

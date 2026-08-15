@@ -536,6 +536,36 @@ create index if not exists scores_chant_idx on scores (mode, song_id, rate desc)
 
 응원법 순위는 **곡별로 성공률이 높은 순**입니다. 같으면 성공 구간이 많은 쪽이 위로 옵니다.
 
+---
+
+### 응원법 "외치기" 랭킹 켜기 — SQL 한 번 더
+
+응원법은 **마이크에 대고 외치는 방식**과 **키보드로 치는 방식** 두 가지입니다.
+난이도가 아예 다르니까 순위를 섞으면 안 되겠죠. 그래서 **어느 방식으로 한 기록인지 적는 칸**을 하나 더 만듭니다.
+
+안 하면 응원법 탭에서 `400` 오류가 뜹니다. (가사·퀴즈 랭킹은 그대로 잘 됩니다)
+
+Supabase → **SQL Editor** → **New query** 에 아래를 붙여넣고 **Run**:
+
+```sql
+-- 1) 입력 방식 칸 추가 ('voice' = 외치기, 'typing' = 키보드)
+alter table scores add column if not exists input text;
+
+-- 2) 이미 쌓인 응원법 기록은 전부 키보드로 친 것이므로 그렇게 채워둡니다
+update scores set input = 'typing' where mode = 'chant' and input is null;
+
+-- 3) 이상한 값이 못 들어오게
+alter table scores drop constraint if exists "input_값";
+alter table scores add  constraint "input_값" check (input is null or input in ('voice','typing'));
+
+-- 4) 순위 조회를 빠르게
+create index if not exists scores_chant_input_idx on scores (mode, song_id, input, rate desc);
+```
+
+> 2번을 꼭 같이 실행하세요. 안 하면 예전 기록이 어느 쪽에도 안 나옵니다.
+
+랭킹 화면의 응원법 탭에서 **🎤 외치기 / ⌨️ 타이핑** 을 골라서 각각 볼 수 있습니다.
+
 ### ⚠️ 무료 플랜은 7일 쉬면 잠듭니다 — 자동 깨우기
 
 Supabase 무료 플랜은 **7일 동안 아무도 접속하지 않으면 프로젝트를 일시정지**시킵니다.

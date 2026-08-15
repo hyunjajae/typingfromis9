@@ -18,7 +18,11 @@
      ],
      chants: [                          // 응원법용 (없으면 응원법 모드에 안 나옴)
        { time: 12.4, text: "이새롬 송하영 박지원 노지선" }
-     ]
+     ],
+     chantVideo: "https://www.youtube.com/watch?v=xxxxxxxxxxx"
+       // 응원법 참고 영상. 연습 시작 전에 "영상 보기" 버튼으로 볼 수 있습니다.
+       // 유튜브 주소를 그냥 붙여넣으면 됩니다 (youtu.be / shorts 주소도 됩니다).
+       // 없으면 이 줄을 빼거나 "" 로 두세요 → 버튼이 안 보입니다.
    }
 
    ※ 정답 비교는 대소문자 / 공백 / 특수문자를 전부 무시합니다.
@@ -180,7 +184,9 @@ const SONGS = [
       { time: 174.72, text: "I got you" },
       { time: 184.51, text: "matter!" },
       { time: 198.29, text: "I want you" }
-    ]
+    ],
+    // 응원법 참고 영상 (연습 전에만 보여줍니다) — 원하는 영상으로 바꿔도 됩니다
+    chantVideo: ""
   },
 
   /* ---------- 02 ---------- */
@@ -273,6 +279,51 @@ const SONGS = [
       { time: 162.81, text: "Come closer now" },
       { time: 165.45, text: "우리가 연결된 시간" },
       { time: 167.59, text: "WE GO WE GO WE GO WE GO Oh oh" }
+    ],
+    chants: [
+      { time: 9.39, text: "들떠" },
+      { time: 10.86, text: "No no" },
+      { time: 12.60, text: "Check-in" },
+      { time: 14.56, text: "Hashtag" },
+      { time: 20.51, text: "여기 저기 거기 Right" },
+      { time: 25.41, text: "피서같이" },
+      { time: 27.28, text: "파도타기" },
+      { time: 30.48, text: "oh my my" },
+      { time: 33.12, text: "캬~" },
+      { time: 35.04, text: "캬~" },
+      { time: 45.27, text: "HEY!" },
+      { time: 48.50, text: "둘이" },
+      { time: 50.00, text: "멀리" },
+      { time: 52.95, text: "HEY!" },
+      { time: 57.07, text: "WE GO WE GO" },
+      { time: 61.44, text: "oh oh oh" },
+      { time: 65.29, text: "oh oh oh" },
+      { time: 68.45, text: "HEY!" },
+      { time: 72.44, text: "WE GO WE GO" },
+      { time: 73.82, text: "Oh oh oh!" },
+      { time: 76.12, text: "더 Zoom in" },
+      { time: 77.86, text: "자 이리" },
+      { time: 79.57, text: "우리 Fashion" },
+      { time: 81.31, text: "What's up" },
+      { time: 91.19, text: "주말같이" },
+      { time: 93.13, text: "파도타기" },
+      { time: 96.29, text: "Oh my my" },
+      { time: 102.01, text: "Turn around" },
+      { time: 111.05, text: "HEY!" },
+      { time: 114.28, text: "둘이" },
+      { time: 115.78, text: "멀리" },
+      { time: 118.76, text: "HEY!" },
+      { time: 122.86, text: "WE GO WE GO" },
+      { time: 124.22, text: "Oh oh oh" },
+      { time: 140.88, text: "와!!!" },
+      { time: 145.20, text: "둘이" },
+      { time: 146.72, text: "멀리" },
+      { time: 149.74, text: "HEY!" },
+      { time: 156.03, text: "송하영! 박지원! 이채영!" },
+      { time: 159.89, text: "이나경! 백지헌! 플로버!" },
+      { time: 163.67, text: "프로미스나인 플로버와 함께해" },
+      { time: 169.62, text: "프로미스나인!" },
+      { time: 171.52, text: "와!!" }
     ]
   },
 
