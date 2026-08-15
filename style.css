@@ -1464,6 +1464,97 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
 .vol-gauge--play { width: min(460px, 78%); margin: 4px auto 0; }
 .vol-gauge--play .vol-gauge__track { height: 10px; }
 
+/* ---- 결과 화면 : 타이밍 다듬기 ---- */
+.tune-box {
+  margin: 26px 0 0;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  background-color: var(--surface);
+}
+.tune-box__title {
+  margin: 0 0 16px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+}
+.tune-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.tune-row__text { flex: 1 1 260px; font-size: 14px; line-height: 1.6; color: var(--text-soft); }
+.tune-row__text b { display: block; font-size: 15.5px; color: var(--text); margin-bottom: 3px; }
+.tune-row__text span b { display: inline; font-size: inherit; }
+
+.tune-box__sub {
+  margin: 20px 0 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text-soft);
+}
+.tune-box__sub b { color: var(--text); font-weight: 700; }
+
+.tune-list { display: flex; flex-direction: column; gap: 6px; }
+.tune-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background-color: var(--bg);
+  font-size: 14px;
+}
+.tune-item i {
+  flex: 0 0 auto;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.tune-item span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tune-item b { flex: 0 0 auto; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tune-item b.is-late { color: var(--wrong); }
+.tune-item b.is-early { color: var(--accent); }
+
+.tune-box__acts {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.tune-box__msg { font-size: 13px; color: var(--text-soft); }
+.tune-box__help { margin: 12px 0 0; font-size: 12.5px; line-height: 1.7; color: var(--muted); }
+.tune-box__help code {
+  background-color: var(--bg);
+  padding: 1px 5px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+.tune-out {
+  width: 100%;
+  height: 160px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+
 /* ---- 마이크 고르기 ---- */
 .mic-pick {
   display: flex;

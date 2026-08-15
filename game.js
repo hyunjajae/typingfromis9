@@ -1590,6 +1590,7 @@ const Chant = (() => {
   let wordIdx = -1;        // 지금 흐르고 있는 가사 줄
   let mode = "typing";     // "typing" | "voice"
   let method = null;       // 지금 쓰고 있는 입력 방식
+  let onsetLog = [];       // 구간마다 "실제로 언제 소리를 냈는지" (타이밍 다듬기용)
 
   const input = $("#chantInput");
   const elLine = $("#chantLine");
@@ -1716,6 +1717,7 @@ const Chant = (() => {
       this.wasLoud = false;
       this.onsetAt = null;
       this.onsetOk = false;
+      this.logged = false;
       this.loud = 0;
       this.lastT = 0;
       this.setText(c.text, 0);
@@ -1742,6 +1744,16 @@ const Chant = (() => {
         // 그 순간이 응원 시각 언저리였는가 — 이것만으로 맞았는지가 정해집니다
         const target = atOf(idx);
         this.onsetOk = now >= target - tune.tol && now <= target + tune.tol;
+
+        /* 나중에 타이밍을 다듬을 수 있게, 찍어둔 시각과 얼마나 차이 났는지
+           그대로 적어둡니다. (보정값을 뺀 날것 그대로 — 판정 성공 여부와 무관) */
+        if (!this.logged) {
+          const raw = now - list[idx].time;
+          if (raw > -1.3 && raw < 1.8) {
+            onsetLog.push({ i: idx, raw: raw });
+            this.logged = true;
+          }
+        }
       }
       this.wasLoud = loud;
 
@@ -2113,6 +2125,7 @@ const Chant = (() => {
     composing = false;
     stat = { ok: 0, miss: 0 };
     missed = [];
+    onsetLog = [];
 
     $("#chantSongTitle").textContent = s.title;
     $("#chantTotal").textContent = list.length;
@@ -2417,8 +2430,97 @@ const Chant = (() => {
       misses: stat.miss
     });
 
+    paintTuneBox();
     pickResultArt("#artChant");
     showScreen("screen-chant-result");
+  }
+
+  /* =====================================================================
+     타이밍 다듬기
+     ---------------------------------------------------------------------
+     한 판 하는 동안 구간마다 "실제로 언제 소리를 냈는지" 를 재뒀습니다.
+     그 차이에는 두 가지가 섞여 있습니다.
+
+       ① 내 습관    — 반주를 듣고 소리를 내기까지 걸리는 시간.
+                      모든 구간에 똑같이 깔립니다. 사람마다 다릅니다.
+       ② 데이터 오차 — 그 구간의 time 을 잘못 찍은 것.
+                      그 구간에만 나타납니다.
+
+     ①은 <가운데값(median)> 입니다. 모든 구간에 공통으로 깔린 값이니까요.
+     그걸 빼고 남는 게 ②입니다.
+
+     이 둘을 갈라놓는 게 중요합니다. 내 습관까지 곡 데이터에 반영해버리면
+     다른 사람한테는 오히려 어긋난 데이터가 되기 때문입니다.
+     ①은 내 보정값으로, ②만 songs.js 로 갑니다. */
+
+  const median = (arr) => {
+    const a = arr.slice().sort((x, y) => x - y);
+    const m = Math.floor(a.length / 2);
+    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+  };
+
+  function tuneReport() {
+    if (mode !== "voice" || onsetLog.length < 4) return null;
+    const bias = median(onsetLog.map((o) => o.raw));
+    const off = onsetLog
+      .map((o) => ({ i: o.i, resid: o.raw - bias }))
+      .filter((r) => Math.abs(r.resid) >= 0.12)      // 이 정도는 그냥 사람 편차
+      .sort((a, b) => Math.abs(b.resid) - Math.abs(a.resid));
+    return { bias: bias, off: off, n: onsetLog.length };
+  }
+
+  function paintTuneBox() {
+    const box = $("#tuneBox");
+    const rep = tuneReport();
+    if (!rep) { box.hidden = true; return; }
+    box.hidden = false;
+
+    const b = rep.bias;
+    $("#tuneBias").textContent =
+      Math.abs(b) < 0.05
+        ? "박자는 잘 맞고 있어요"
+        : "전체적으로 " + Math.abs(b).toFixed(2) + "초 " + (b > 0 ? "늦게" : "빨리") + " 외치고 있어요";
+    $("#btnApplyBias").disabled = false;
+    $("#btnApplyBias").textContent = "보정값에 반영";
+
+    $("#tuneOffBox").hidden = rep.off.length === 0;
+    if (rep.off.length === 0) return;
+
+    const box2 = $("#tuneList");
+    box2.replaceChildren();
+    rep.off.slice(0, 10).forEach((r) => {
+      const row = document.createElement("div");
+      row.className = "tune-item";
+      const t = document.createElement("i");
+      t.textContent = fmtMmSs(list[r.i].time);
+      const txt = document.createElement("span");
+      txt.textContent = list[r.i].text;
+      const d = document.createElement("b");
+      d.textContent = (r.resid > 0 ? "+" : "−") + Math.abs(r.resid).toFixed(2) + "초";
+      d.className = r.resid > 0 ? "is-late" : "is-early";
+      row.append(t, txt, d);
+      box2.appendChild(row);
+    });
+    $("#tuneMsg").textContent = "어긋난 곳 " + rep.off.length + "군데";
+  }
+
+  /** 고친 시각으로 chants: 배열을 통째로 만들어 줍니다 (songs.js 에 붙여넣기) */
+  function correctedChants() {
+    const rep = tuneReport();
+    if (!rep) return "";
+    const fix = {};
+    rep.off.forEach((r) => { fix[r.i] = r.resid; });
+
+    const lines = list.map((c, i) => {
+      const t = fix[i] ? c.time + fix[i] : c.time;
+      const mark = fix[i]
+        ? "   // " + (fix[i] > 0 ? "+" : "−") + Math.abs(fix[i]).toFixed(2) + " 옮김"
+        : "";
+      return "      { time: " + t.toFixed(2) + ', text: "' +
+             String(c.text).replace(/"/g, '\\"') + '" }' +
+             (i < list.length - 1 ? "," : "") + mark;
+    });
+    return "    chants: [\n" + lines.join("\n") + "\n    ]";
   }
 
   function quit() {
@@ -2489,6 +2591,36 @@ const Chant = (() => {
   });
   $("#timeAdjust").addEventListener("input", onTuneChange);
   $("#tolAdjust").addEventListener("input", onTuneChange);
+
+  /* ---- 결과 화면의 타이밍 다듬기 ---- */
+  $("#btnApplyBias").addEventListener("click", () => {
+    const rep = tuneReport();
+    if (!rep) return;
+    // 내 습관만큼 판정을 밀어줍니다 (슬라이더 범위 안으로)
+    tune.offset = Math.max(-0.6, Math.min(0.6, Math.round(rep.bias * 20) / 20));
+    saveTune();
+    $("#btnApplyBias").textContent = "반영했어요 (" +
+      (tune.offset >= 0 ? "+" : "−") + Math.abs(tune.offset).toFixed(2) + "초)";
+    $("#btnApplyBias").disabled = true;
+  });
+
+  $("#btnCopyChants").addEventListener("click", async () => {
+    const text = correctedChants();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      $("#tuneMsg").textContent = "복사했어요. songs.js 의 chants 자리에 덮어쓰세요.";
+    } catch (e) {
+      // 클립보드가 막힌 환경에서는 직접 고를 수 있게 펼쳐줍니다
+      const ta = document.createElement("textarea");
+      ta.className = "tune-out";
+      ta.value = text;
+      ta.readOnly = true;
+      $("#tuneOffBox").appendChild(ta);
+      ta.select();
+      $("#tuneMsg").textContent = "아래 내용을 직접 복사하세요.";
+    }
+  });
   $("#btnChantVideo1").addEventListener("click", openVideo);
   $("#btnChantVideo2").addEventListener("click", openVideo);
   $("#btnVideoClose").addEventListener("click", closeVideo);

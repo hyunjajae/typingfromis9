@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 5;
+      var VER = 6;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -641,6 +641,38 @@
         <div class="miss-list__body" id="missBody"></div>
       </div>
 
+      <!-- ============ 타이밍 다듬기 (음성 모드에서만) ============
+           방금 판에서 "언제 소리를 냈는지" 를 전부 재뒀습니다.
+           그걸로 내 습관과 데이터 오차를 갈라서 보여줍니다. -->
+      <div class="tune-box" id="tuneBox" hidden>
+        <p class="tune-box__title">타이밍 다듬기</p>
+
+        <!-- ① 내 습관 : 전체적으로 몇 초씩 밀려 있는가 -->
+        <div class="tune-row">
+          <div class="tune-row__text">
+            <b id="tuneBias">—</b>
+            <span>이건 <b>내 습관</b>이라 곡 데이터가 아니라 보정값을 옮기면 됩니다.</span>
+          </div>
+          <button class="ghost-btn ghost-btn--sm" id="btnApplyBias" type="button">보정값에 반영</button>
+        </div>
+
+        <!-- ② 데이터 오차 : 내 습관을 빼고도 남는 어긋남 -->
+        <div id="tuneOffBox" hidden>
+          <p class="tune-box__sub">
+            내 습관을 뺐는데도 어긋나는 구간입니다. 여기는 <b>곡 데이터가 실제로 틀린 쪽</b>이에요.
+          </p>
+          <div class="tune-list" id="tuneList"></div>
+          <div class="tune-box__acts">
+            <button class="solid-btn" id="btnCopyChants" type="button">고친 chants: 복사</button>
+            <span class="tune-box__msg" id="tuneMsg"></span>
+          </div>
+          <p class="tune-box__help">
+            복사한 걸 <code>data/songs.js</code> 의 이 곡 <code>chants</code> 자리에 덮어쓰면 됩니다.
+            (한 번 더 확인하고 싶으면 <code>lyrics-tuner.html</code> 에서 구간별로 들어볼 수 있어요)
+          </p>
+        </div>
+      </div>
+
       <div class="submit-box" id="submitChant" hidden>
         <div class="submit-box__row">
           <span class="submit-box__nick">닉네임 <b id="nickChant">—</b></span>
@@ -738,7 +770,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 5;
+      var VER = 6;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
