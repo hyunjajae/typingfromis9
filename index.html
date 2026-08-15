@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 4;
+      var VER = 5;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -507,6 +507,27 @@
           <b id="micAdjustVal">보통</b>
         </label>
         <p class="mic-adjust__help">잘 인식이 안 되면 왼쪽으로, 가만히 있어도 반응하면 오른쪽으로 옮기세요.</p>
+
+        <hr class="mic-sep" />
+
+        <label class="mic-adjust">
+          <span>외치는 타이밍</span>
+          <input type="range" id="timeAdjust" min="-60" max="60" step="5" value="30" />
+          <b id="timeAdjustVal">+0.30초</b>
+        </label>
+        <p class="mic-adjust__help">
+          제때 외쳤는데 놓쳤다고 나오면 이걸 옮기세요.
+          내가 외치는 것보다 <b>판정이 이르면 오른쪽</b>으로, <b>늦으면 왼쪽</b>으로.
+        </p>
+
+        <label class="mic-adjust">
+          <span>인정 범위</span>
+          <input type="range" id="tolAdjust" min="25" max="100" step="5" value="50" />
+          <b id="tolAdjustVal">±0.50초</b>
+        </label>
+        <p class="mic-adjust__help">
+          좁힐수록 박자를 정확히 맞춰야 합니다. 연습이 익숙해지면 줄여보세요.
+        </p>
       </div>
 
       <p class="ready-error" id="readyError" hidden></p>
@@ -547,18 +568,17 @@
           <p class="chant-lyric chant-lyric--side" id="chantLyricNext"></p>
         </div>
 
-        <!-- ② 응원 : 높이를 고정해서 구간이 떠도 화면이 튀지 않습니다 -->
-        <div class="chant-slot">
-          <!-- 구간이 아직 안 왔을 때 : 무엇을 외칠지 미리 크게 보여줍니다 -->
-          <div class="chant-idle" id="chantIdle">
-            <p class="chant-idle__label">
-              다음 응원까지 <b class="chant-idle__count" id="chantCountdown">–</b>
-            </p>
-            <p class="chant-idle__next" id="chantNextText"></p>
-          </div>
+        <!-- ② 응원 : 높이를 고정해서 구간이 떠도 화면이 튀지 않습니다.
+             ★ 대기 ↔ 구간을 서로 다른 블록으로 갈아끼우면 글자 자리가 튑니다.
+               그래서 응원 문구는 <하나의 자리>에 그대로 두고,
+               위 칸만 "남은 시간" ↔ "타이밍 막대" 로 바뀝니다. -->
+        <div class="chant-slot" id="chantSlot">
 
-          <!-- 구간이 떴을 때 -->
-          <div class="chant-live" id="chantLive" hidden>
+          <!-- 위 칸 : 높이가 고정이라 무엇이 오든 아래가 안 밀립니다 -->
+          <div class="chant-cue">
+            <p class="chant-cue__wait">
+              다음 응원까지 <b id="chantCountdown">–</b>
+            </p>
             <div class="chant-timer" id="chantTimer">
               <!-- 타이핑 : 남은 시간이 줄어드는 막대 -->
               <div class="chant-timer__bar" id="chantTimerBar"></div>
@@ -566,8 +586,10 @@
               <div class="chant-timer__hit" id="chantTimerHit"></div>
               <div class="chant-timer__now" id="chantTimerNow"></div>
             </div>
-            <p class="lyric lyric--current chant-line" id="chantLine"></p>
           </div>
+
+          <!-- 응원 문구 : 기다릴 때도 같은 자리에 미리 떠 있습니다 -->
+          <p class="lyric lyric--current chant-line" id="chantLine"></p>
 
           <!-- 판정이 잠깐 뜨는 자리 -->
           <p class="chant-verdict" id="chantVerdict"></p>
@@ -716,7 +738,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 4;
+      var VER = 5;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";

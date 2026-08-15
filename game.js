@@ -1536,10 +1536,6 @@ const Chant = (() => {
   const GRACE = 3.0;       // 타이핑 : 응원 시각이 지난 뒤 봐주는 시간
   const GAP = 0.15;        // 다음 구간과 겹치지 않게 두는 최소 간격
 
-  /* 찍어둔 시각보다 실제로 외치는 순간이 조금 늦습니다.
-     (반주를 듣고 → 숨을 들이쉬고 → 소리가 나오기까지 걸리는 시간)
-     그래서 음성일 때만 판정 구간 전체를 이만큼 뒤로 밉니다. */
-  const VOICE_OFFSET = 0.3;
 
   /* =====================================================================
      음성 판정은 "언제 시작했는가" 만 봅니다
@@ -1557,11 +1553,27 @@ const Chant = (() => {
      추측이 없으니 어긋날 데가 없습니다.
 
      덤으로 반응도 빨라집니다. 예전에는 다 외치고 나서야 성공이 떴는데
-     (그래서 늘 한 박자 늦은 느낌이었습니다) 이제 지르는 순간 바로 뜹니다. */
+     (그래서 늘 한 박자 늦은 느낌이었습니다) 이제 지르는 순간 바로 뜹니다.
 
-  const HIT_EARLY = 0.5;    // 이만큼 일찍 질러도 인정
-  const HIT_LATE = 0.5;     // 이만큼 늦게 질러도 인정
+     보정값(offset)과 인정 범위(tol)는 준비 화면에서 직접 맞출 수 있습니다.
+     사람마다, 이어폰마다 반 박자씩 다르기 때문에 고정값으로는 안 맞습니다. */
+
   const MIN_VOICE = 0.22;   // 기침·마우스 소리가 아니라고 볼 최소 발성 시간
+
+  const TUNE_KEY = "f9typing_voice_tune";
+  const TUNE_DEFAULT = { offset: 0.3, tol: 0.5 };
+  let tune = Object.assign({}, TUNE_DEFAULT);
+
+  function loadTune() {
+    try {
+      const raw = localStorage.getItem(TUNE_KEY);
+      if (raw) tune = Object.assign({}, TUNE_DEFAULT, JSON.parse(raw));
+    } catch (e) { tune = Object.assign({}, TUNE_DEFAULT); }
+  }
+  function saveTune() {
+    try { localStorage.setItem(TUNE_KEY, JSON.stringify(tune)); } catch (e) {}
+  }
+  loadTune();
 
   let song = null;
   let list = [];           // 이 곡의 응원 구간들
@@ -1592,12 +1604,12 @@ const Chant = (() => {
      음성은 인정 구간이 끝나면 바로 판정합니다. 조금 여유만 둡니다. */
   function graceOf(i) {
     if (mode !== "voice") return GRACE;
-    return HIT_LATE + MIN_VOICE + 0.15;
+    return tune.tol + MIN_VOICE + 0.15;
   }
 
   /** 이 구간을 "노려야 하는 시각". 음성일 때만 조금 뒤로 밀려 있습니다. */
   function atOf(i) {
-    return list[i].time + (mode === "voice" ? VOICE_OFFSET : 0);
+    return list[i].time + (mode === "voice" ? tune.offset : 0);
   }
 
   function deadlineOf(i) {
@@ -1618,7 +1630,7 @@ const Chant = (() => {
      → 미리 다 쳐놓았다면 time 이 되는 순간 성공으로 넘어갑니다. */
   function judgeFrom(i) {
     // 음성은 인정 구간이 time 앞뒤로 열려 있습니다.
-    const start = atOf(i) - (mode === "voice" ? HIT_EARLY : 0);
+    const start = atOf(i) - (mode === "voice" ? tune.tol : 0);
     // 응원이 아주 촘촘히 붙어 있으면 마감이 time 보다 앞에 올 수도 있습니다.
     // 그러면 성공할 방법이 아예 없어지므로, 최소한의 시간은 남겨둡니다.
     return Math.min(start, deadlineOf(i) - 0.4);
@@ -1729,7 +1741,7 @@ const Chant = (() => {
         this.loud = 0;
         // 그 순간이 응원 시각 언저리였는가 — 이것만으로 맞았는지가 정해집니다
         const target = atOf(idx);
-        this.onsetOk = now >= target - HIT_EARLY && now <= target + HIT_LATE;
+        this.onsetOk = now >= target - tune.tol && now <= target + tune.tol;
       }
       this.wasLoud = loud;
 
@@ -1967,6 +1979,7 @@ const Chant = (() => {
     $("#btnChantStart").disabled = true;
     $("#micAdjust").value = String(Voice.getAdjust());
     paintAdjustLabel();
+    fillTuneInputs();
     setStageBg(song.cover);
     showScreen("screen-chant-ready");
 
@@ -2062,6 +2075,27 @@ const Chant = (() => {
       v <= -6 ? "많이 민감" : v < 0 ? "민감" : v === 0 ? "보통" : v < 6 ? "둔감" : "많이 둔감";
   }
 
+  /* ---- 타이밍 미세조정 ----
+     슬라이더 값은 1/100초 단위입니다. */
+  function paintTuneLabels() {
+    const off = tune.offset;
+    $("#timeAdjustVal").textContent = (off >= 0 ? "+" : "−") + Math.abs(off).toFixed(2) + "초";
+    $("#tolAdjustVal").textContent = "±" + tune.tol.toFixed(2) + "초";
+  }
+
+  function fillTuneInputs() {
+    $("#timeAdjust").value = String(Math.round(tune.offset * 100));
+    $("#tolAdjust").value = String(Math.round(tune.tol * 100));
+    paintTuneLabels();
+  }
+
+  function onTuneChange() {
+    tune.offset = Number($("#timeAdjust").value) / 100;
+    tune.tol = Number($("#tolAdjust").value) / 100;
+    saveTune();
+    paintTuneLabels();
+  }
+
   /* ---- 시작 ---- */
   function start(s, m) {
     song = s;
@@ -2103,6 +2137,7 @@ const Chant = (() => {
     showScreen("screen-chant");
     input.value = "";
     method.enter();            // 입력 방식마다 다른 화면 준비
+    $("#chantSlot").classList.remove("is-live", "is-soon");
     setLive(false);
 
     Audio9.load(s.audio, () => { $("#chantNoAudio").hidden = false; });
@@ -2127,15 +2162,24 @@ const Chant = (() => {
   }
 
   /* ---- 화면 전환 (대기 ↔ 구간) ---- */
+  /* 기다리는 동안에도 응원 문구를 같은 자리에 미리 띄워둡니다.
+     구간이 뜰 때 글자가 새로 생기지 않으니 자리가 안 튑니다. */
+  function preview() {
+    if (idx >= list.length) { elLine.textContent = ""; return; }
+    if (mode === "voice") VoiceMode.setText(list[idx].text, 0);
+    else renderTypingCells(elLine, list[idx].text, "", false);
+  }
+
   function setLive(on) {
     live = on;
-    $("#chantLive").hidden = !on;
-    $("#chantIdle").hidden = on;
+    $("#chantSlot").classList.toggle("is-live", on);
     if (on) {
       if (mode === "typing") renderTypingCells(elLine, list[idx].text, "", false);
       method.onLiveStart(list[idx]);
     } else {
       method.onLiveEnd();
+      $("#chantSlot").classList.remove("is-soon");
+      preview();
     }
     paintUpcoming();
   }
@@ -2281,12 +2325,12 @@ const Chant = (() => {
            초록 구간에 현재 위치 선이 들어왔을 때 지르면 됩니다. */
         const target = atOf(idx);
         const pct = (t) => Math.max(0, Math.min(100, ((t - from) / span) * 100));
-        const a = pct(target - HIT_EARLY);
-        const b = pct(target + HIT_LATE);
+        const a = pct(target - tune.tol);
+        const b = pct(target + tune.tol);
         $("#chantTimerHit").style.left = a.toFixed(1) + "%";
         $("#chantTimerHit").style.width = (b - a).toFixed(1) + "%";
         $("#chantTimerNow").style.left = pct(now).toFixed(1) + "%";
-        $("#chantTimer").classList.toggle("is-now", now >= target - HIT_EARLY && now <= target + HIT_LATE);
+        $("#chantTimer").classList.toggle("is-now", now >= target - tune.tol && now <= target + tune.tol);
       } else {
         // 타이핑 : 남은 시간 막대
         const left = Math.max(0, Math.min(1, (to - now) / span));
@@ -2295,12 +2339,11 @@ const Chant = (() => {
         bar.classList.toggle("is-hurry", left < 0.3);
       }
     } else {
-      // 기다리는 동안 : 다음에 외칠 말을 미리 보여줍니다
+      // 기다리는 동안 : 남은 시간. (외칠 말은 setLive 에서 이미 띄워뒀습니다)
       const wait = Math.max(0, showAtOf(idx) - now);
       $("#chantCountdown").textContent = (wait < 10 ? wait.toFixed(1) : Math.round(wait)) + "초";
-      $("#chantNextText").textContent = list[idx].text;
       // 1.5초 안쪽으로 들어오면 또렷하게 (준비 신호)
-      $("#chantIdle").classList.toggle("is-soon", wait < 1.5);
+      $("#chantSlot").classList.toggle("is-soon", wait < 1.5);
     }
   }
 
@@ -2444,6 +2487,8 @@ const Chant = (() => {
     Voice.setAdjust(Number($("#micAdjust").value));
     paintAdjustLabel();
   });
+  $("#timeAdjust").addEventListener("input", onTuneChange);
+  $("#tolAdjust").addEventListener("input", onTuneChange);
   $("#btnChantVideo1").addEventListener("click", openVideo);
   $("#btnChantVideo2").addEventListener("click", openVideo);
   $("#btnVideoClose").addEventListener("click", closeVideo);
