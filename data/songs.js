@@ -66,7 +66,9 @@ const SONG_ORDER = [
   "lovebomb",       // LOVE BOMB
   "dkdk",           // 두근두근 (DKDK)
   "toheart",        // To Heart
-  "glassshoes"      // 유리구두
+  "glassshoes",     // 유리구두
+  "lovedisaster",   // Love=Disaster
+  "rebelutional"    // REBELUTIONAL
 ];
 
 const SONGS = [
@@ -1775,5 +1777,35 @@ const SONGS = [
       { time: 176.02, text: "와!!!" }
     ],
     chantVideo: "https://youtu.be/UlGeN6JHAJc"
+  },
+
+  /* ---------- 17 ---------- */
+  {
+    id: "lovedisaster",
+    title: "Love=Disaster",
+    titleAliases: ["러브디재스터", "러브이즈디재스터"],
+    album: "From Our 20's",
+    color: "#42e695",
+    cover: "covers/from-our-20s.jpg",
+    audio: "audio/lovedisaster.mp3",
+    intro: { start: 0, duration: 6 },
+    lyrics: [],
+    chants: [],
+    chantVideo: ""
+  },
+
+  /* ---------- 18 ---------- */
+  {
+    id: "rebelutional",
+    title: "REBELUTIONAL",
+    titleAliases: ["레벌루셔널", "리벨루셔널"],
+    album: "From Our 20's",
+    color: "#42e695",
+    cover: "covers/from-our-20s.jpg",
+    audio: "audio/rebelutional.mp3",
+    intro: { start: 0, duration: 6 },
+    lyrics: [],
+    chants: [],
+    chantVideo: ""
   }
 ];
