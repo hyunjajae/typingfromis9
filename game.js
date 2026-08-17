@@ -946,8 +946,19 @@ const Lyrics = (() => {
     settled = 0;
     composing = false;
     input.value = "";
-    // 브라우저가 직접 길이를 막아줍니다 (한글 조합 중에도 안 늘어남)
-    input.maxLength = target.length;
+
+    /* ★ maxLength 를 줄 길이에 딱 맞추면 안 됩니다 (아이폰 버그)
+
+       예전에는 input.maxLength = target.length 였습니다. 크롬은 한글 조합 중에
+       maxLength 를 무시해서 문제가 없었지만, 아이폰 사파리는 지킵니다.
+
+       그래서 줄을 꽉 채운 순간 사파리가 그 뒤 입력을 아예 막아버립니다.
+       한글은 마지막 글자를 <고쳐서> 완성하는 일이 흔한데(오 → 와, 나 → 난)
+       그 자모가 막혀서 마지막 글자를 끝낼 수 없고, 줄도 안 넘어갔습니다.
+       영어는 글자를 고칠 일이 없으니 멀쩡했고, 마지막 글자에서만 났습니다.
+
+       이제 조합할 여유를 넉넉히 두고, 길이는 아래 capToLine() 이 맡습니다. */
+    input.maxLength = target.length + 8;
 
     resyncAudioToLine();   // 노래 위치를 지금 줄에 맞춤
 
@@ -996,8 +1007,15 @@ const Lyrics = (() => {
     }
   }
 
-  /** 입력이 줄 길이를 넘지 않게 잘라냅니다 (조합 중에도 적용) */
+  /* ---- 입력이 줄 길이를 넘지 않게 잘라냅니다 ----
+
+     ★ 조합 중에는 건드리지 않습니다.
+       조합 중에 input.value 를 대입하면 아이폰 사파리는 조합을 깨버립니다.
+       그러면 "오" 에 ㅏ 를 더해 "와" 로 만드는 것 자체가 불가능해집니다.
+       조합이 끝나는 순간(compositionend) 어차피 다시 잘라내므로,
+       조합하는 동안 잠깐 길어지는 건 그냥 둡니다. (글자 칸은 넘친 것도 그려줍니다) */
   function capToLine() {
+    if (composing) return;
     if (input.value.length > target.length) {
       input.value = input.value.slice(0, target.length);
     }
@@ -1180,17 +1198,20 @@ const Lyrics = (() => {
     onInput();
   });
 
-  /* 줄 끝을 넘어가는 입력은 키를 누른 즉시 막습니다.
-     (한글 조합 중에는 브라우저의 maxLength 가 안 먹는 경우가 있어서
-      keydown 단계에서 한 번 더 막아줍니다) */
+  /* 줄 끝을 한참 넘어가는 입력만 막습니다 (ㅏㅏㅏㅏ 처럼 밀려나는 것 방지).
+
+     ★ "줄을 다 쳤으면 막는다" 로 하면 안 됩니다.
+       한글은 다 친 것처럼 보이는 마지막 글자에 자모를 더해 완성하는 일이 많습니다.
+       (오 → 와, 나 → 난) 그걸 막으면 마지막 글자를 끝낼 수 없습니다.
+       그래서 <이미 넘친 상태> 에서만 막습니다. */
   input.addEventListener("keydown", (e) => {
     if (!running || paused) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
+    if (composing) return;                  // 조합 중에는 절대 막지 않습니다
     // 글자를 새로 넣는 키인지 (Backspace·화살표·Enter 등은 통과)
     const isTyping = e.key.length === 1 || e.key === "Process" || e.key === "Unidentified";
     if (!isTyping) return;
-    // 이미 줄을 다 쳤고, 지금 조합 중인 글자도 없으면 더 못 치게 막습니다
-    if (!composing && input.value.length >= target.length) e.preventDefault();
+    if (input.value.length > target.length) e.preventDefault();
   });
 
   input.addEventListener("keydown", (e) => {
@@ -1723,7 +1744,8 @@ const Chant = (() => {
       this.ready = false;
       input.disabled = false;
       input.value = "";
-      input.maxLength = c.text.length;
+      // 딱 맞추면 아이폰에서 마지막 글자를 완성할 수 없습니다 (가사 모드 설명 참고)
+      input.maxLength = c.text.length + 8;
       input.focus();
     },
     onFrame(now, judge) {
