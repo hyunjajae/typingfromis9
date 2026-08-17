@@ -1274,6 +1274,8 @@ const Quiz = (() => {
   let wrong = 0;
   let passed = 0;
   let wrongStreak = 0;  // 현재 문제에서 연속 오답 횟수 (힌트 표시용)
+  let how = "typing";   // "typing"(주관식) | "choice"(객관식)
+  let picks = [];       // 객관식 보기 (지금 문제용)
   let startedAt = 0;
   let running = false;
   let raf = null;
@@ -1283,12 +1285,15 @@ const Quiz = (() => {
   const wave = $("#quizWave");
   const hint = $("#quizHint");
 
+  /* 최고 기록은 <곡 수 + 답하는 방식> 별로 따로 저장합니다.
+     객관식은 누르기만 하면 되니 주관식보다 훨씬 빠릅니다. 섞으면 비교가 안 됩니다.
+     (주관식은 예전 기록을 그대로 쓰도록 열쇠 이름을 안 바꿨습니다) */
   const BEST_KEY = "f9typing_quiz_best";
+  const bestKey = (count, h) => BEST_KEY + "_" + count + (h === "choice" ? "_choice" : "");
 
-  /** 저장된 최고 기록 읽기 (곡 수별로 따로 저장) */
-  function loadBest(count) {
+  function loadBest(count, h) {
     try {
-      const raw = localStorage.getItem(BEST_KEY + "_" + count);
+      const raw = localStorage.getItem(bestKey(count, h || how));
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
@@ -1296,7 +1301,7 @@ const Quiz = (() => {
   function saveBest(count, sec) {
     try {
       localStorage.setItem(
-        BEST_KEY + "_" + count,
+        bestKey(count, how),
         JSON.stringify({ sec: sec, date: new Date().toISOString().slice(0, 10) })
       );
     } catch (e) {}
@@ -1308,13 +1313,17 @@ const Quiz = (() => {
     preloadCovers();
     const pool = SONGS.filter((s) => s.intro);
     $("#qiCount").textContent = pool.length;
-    const best = loadBest(pool.length);
+    // 두 방식 중 더 잘한 기록을 보여줍니다
+    const bt = loadBest(pool.length, "typing");
+    const bc = loadBest(pool.length, "choice");
+    const best = (bt && bc) ? (bc.sec < bt.sec ? bc : bt) : (bt || bc);
     $("#qiBest").textContent = best ? fmtClock(best.sec) : "--";
     showScreen("screen-quiz-intro");
   }
 
   /* ---- 스피드런 시작 ---- */
-  function start() {
+  function start(h) {
+    how = h === "choice" ? "choice" : "typing";
     queue = shuffle(SONGS.filter((s) => s.intro));
     qi = 0;
     wrong = 0;
@@ -1342,11 +1351,20 @@ const Quiz = (() => {
     $("#quizProgressBar").style.width = (qi / queue.length) * 100 + "%";
     $("#quizNoAudioBadge").hidden = true;
 
-    input.value = "";
-    input.disabled = false;
-    input.focus();
     hint.textContent = "";
     status.className = "quiz-status";
+
+    if (how === "choice") {
+      input.hidden = true;
+      input.disabled = true;
+      buildChoices(s);
+    } else {
+      input.hidden = false;
+      $("#quizChoices").hidden = true;
+      input.value = "";
+      input.disabled = false;
+      input.focus();
+    }
 
     playIntro(s);
   }
@@ -1401,13 +1419,14 @@ const Quiz = (() => {
 
     const done = () => {
       wave.classList.remove("is-playing");
-      if (running) status.textContent = "제목을 입력하고 Enter";
+      if (running) status.textContent = how === "choice" ? "맞는 제목을 고르세요" : "제목을 입력하고 Enter";
     };
 
     const noAudio = () => {
       wave.classList.remove("is-playing");
       $("#quizNoAudioBadge").hidden = false;
-      status.textContent = "오디오 없이 진행 — 제목을 입력하세요";
+      status.textContent = how === "choice" ? "오디오 없이 진행 — 제목을 고르세요"
+                                            : "오디오 없이 진행 — 제목을 입력하세요";
     };
 
     /* 퀴즈는 도입부 몇 초만 들려주면 되는데, 전체 mp3 를 걸면
@@ -1426,9 +1445,80 @@ const Quiz = (() => {
     Audio9.playSegment(0, s.intro.duration, done);
   }
 
-  /* ---- 정답 확인 ---- */
+  /* ---- 객관식 보기 만들기 ----
+     정답 하나 + 다른 곡 세 개를 섞습니다.
+     같은 앨범 곡을 먼저 넣어서, 아무거나 찍기 어렵게 합니다. */
+  const CHOICES = 4;
+
+  function buildChoices(s) {
+    const others = SONGS.filter((x) => x.id !== s.id && x.intro);
+    const sameAlbum = shuffle(others.filter((x) => x.album && x.album === s.album));
+    const rest = shuffle(others.filter((x) => !x.album || x.album !== s.album));
+    picks = shuffle([s].concat(sameAlbum.concat(rest).slice(0, CHOICES - 1)));
+
+    const box = $("#quizChoices");
+    box.replaceChildren();
+    picks.forEach((p, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "quiz-choice";
+      b.dataset.id = p.id;
+
+      const no = document.createElement("i");
+      no.className = "quiz-choice__no";
+      no.textContent = i + 1;
+      const t = document.createElement("span");
+      t.className = "quiz-choice__t";
+      t.textContent = p.title;
+
+      b.append(no, t);
+      b.addEventListener("click", () => pick(i));
+      box.appendChild(b);
+    });
+    box.hidden = false;
+  }
+
+  /** 보기 하나를 골랐을 때 (1~4 숫자 키로도 들어옵니다) */
+  function pick(i) {
+    if (!running || how !== "choice" || !picks[i]) return;
+    const box = $("#quizChoices");
+    const btn = box.children[i];
+    if (!btn || btn.disabled) return;
+
+    if (picks[i].id === queue[qi].id) {
+      correct();
+    } else {
+      // 틀린 보기는 눌러둔 채로 잠가서, 남은 보기 중에 다시 고르게 합니다
+      wrong++;
+      wrongStreak++;
+      $("#quizWrong").textContent = wrong;
+      btn.disabled = true;
+      btn.classList.add("is-ng");
+      status.textContent = "땡! 다시 들어보세요";
+      status.className = "quiz-status is-ng";
+    }
+  }
+
+  /** 정답 처리 (주관식·객관식 공통) */
+  function correct() {
+    const s = queue[qi];
+    Audio9.stop();
+    wave.classList.remove("is-playing");
+    status.textContent = "";
+    status.className = "quiz-status";
+    input.disabled = true;
+    $("#quizChoices").hidden = true;
+    showReveal(s, true);
+    qi++;
+    /* 정답 커버를 보여주는 시간.
+       객관식은 짧게 둡니다. 누르는 건 1초도 안 걸리는데 커버를 1.6초씩 보여주면
+       18곡에 29초가 커버 보는 시간이라, 실력 차이가 묻혀버립니다. */
+    setTimeout(nextQuestion, how === "choice" ? 1000 : 1600);
+  }
+
+  /* ---- 정답 확인 (주관식) ---- */
   function check() {
-    if (!running) return;
+    if (!running || how !== "typing") return;
     const typed = looseKey(input.value);
     if (!typed) return;
 
@@ -1437,14 +1527,7 @@ const Quiz = (() => {
     const answers = [s.title].concat(s.titleAliases || []).map(looseKey);
 
     if (answers.includes(typed)) {
-      // 정답 → 앨범 커버를 보여줍니다
-      Audio9.stop();
-      wave.classList.remove("is-playing");
-      status.textContent = "";
-      input.disabled = true;
-      showReveal(s, true);
-      qi++;
-      setTimeout(nextQuestion, 1600);
+      correct();
     } else {
       // 오답 → 재시도
       wrong++;
@@ -1479,6 +1562,7 @@ const Quiz = (() => {
     status.textContent = "";
     status.className = "quiz-status";
     input.disabled = true;
+    $("#quizChoices").hidden = true;
     showReveal(queue[qi], false);   // 패스해도 정답 커버를 보여줍니다
     qi++;
     setTimeout(nextQuestion, 1900);
@@ -1493,7 +1577,7 @@ const Quiz = (() => {
 
     const sec = (performance.now() - startedAt) / 1000;
     const count = queue.length;
-    const prev = loadBest(count);
+    const prev = loadBest(count, how);
     const isNewBest = !prev || sec < prev.sec;
     if (isNewBest) saveBest(count, sec);
 
@@ -1504,8 +1588,11 @@ const Quiz = (() => {
     $("#qrPass").textContent = passed;
     $("#qrBest").textContent = fmtClock(isNewBest ? sec : prev.sec);
 
+    const label = how === "choice" ? "인트로 퀴즈 · 객관식" : "인트로 퀴즈 · 주관식";
+    $("#screen-quiz-result .page-head__eyebrow").textContent = label;
+
     Share.set({
-      modeLabel: "인트로 퀴즈 스피드런",
+      modeLabel: label,
       title: fmtClock(sec),
       sub: count + "곡 완주",
       color: "#0f9d76",
@@ -1523,6 +1610,7 @@ const Quiz = (() => {
 
     Ranking.offer({
       mode: "quiz",
+      input: how,              // 객관식과 주관식은 순위를 따로 매깁니다
       seconds: sec,
       count: count,
       misses: wrong,
@@ -1548,10 +1636,20 @@ const Quiz = (() => {
     Audio9.stop();
     wave.classList.remove("is-playing");
     hideReveal();
+    $("#quizChoices").hidden = true;
+    input.hidden = false;
     if (raf) cancelAnimationFrame(raf);
   }
 
   /* ---- 이벤트 연결 ---- */
+
+  /* 객관식은 1~4 숫자 키로도 고를 수 있습니다 (PC 에서 훨씬 빠릅니다) */
+  document.addEventListener("keydown", (e) => {
+    if (!running || how !== "choice" || currentScreen !== "screen-quiz") return;
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= CHOICES) { e.preventDefault(); pick(n - 1); }
+  });
+
   input.addEventListener("keydown", (e) => {
     // 한글 조합 중에 눌린 Enter 는 "글자 확정"이므로 무시해야 합니다
     if (e.key === "Enter" && !e.isComposing) {
@@ -1573,7 +1671,10 @@ const Quiz = (() => {
     setTimeout(() => input.focus(), 0);
   });
 
-  return { showIntro, start, quit };
+  /** 결과 화면의 "다시하기" — 방금 한 방식 그대로 */
+  const retry = () => start(how);
+
+  return { showIntro, start, retry, quit, getHow: () => how };
 })();
 
 /* ======================= 4-b. 모드 3 : 응원법 =======================
@@ -3614,6 +3715,7 @@ const Ranking = (() => {
     } else if (rec.mode === "quiz") {
       body.seconds = Number(rec.seconds.toFixed(2));
       body.misses = rec.misses;
+      body.input = rec.input === "choice" ? "choice" : "typing";
     } else if (rec.mode === "chant") {
       body.song_id = rec.songId;
       body.rate = Math.round(rec.rate);
@@ -3635,6 +3737,8 @@ const Ranking = (() => {
     // 안 그러면 그 칸을 아직 안 만든 상태에서 가사·퀴즈 랭킹까지 막힙니다.
     const cols = mode === "chant"
       ? "nickname,rate,hits,total,misses,input,created_at"
+      : mode === "quiz"
+      ? "nickname,seconds,misses,input,created_at"
       : "nickname,cpm,accuracy,seconds,misses,created_at";
 
     let q = apiBase() + "/scores?select=" + cols +
@@ -3643,8 +3747,9 @@ const Ranking = (() => {
        : mode === "chant" ? "&order=rate.desc,hits.desc"
        : "&order=cpm.desc";
     if (mode !== "quiz" && songId) q += "&song_id=eq." + encodeURIComponent(songId);
-    // 외치기와 타이핑은 난이도가 달라서 순위를 섞지 않습니다
-    if (mode === "chant" && inputKind) q += "&input=eq." + inputKind;
+    /* 답하는 방식이 다르면 난이도가 달라서 순위를 섞지 않습니다.
+       응원법 : 외치기 / 타이핑,  퀴즈 : 객관식 / 주관식 */
+    if ((mode === "chant" || mode === "quiz") && inputKind) q += "&input=eq." + inputKind;
     const res = await fetch(q, { headers: headers() });
     if (!res.ok) throw new Error("불러오기 실패 (" + res.status + ")");
     return res.json();
@@ -3716,11 +3821,10 @@ const Ranking = (() => {
     if (mode !== "quiz" && !feature(mode === "chant" ? "chant" : "lyrics")) mode = "quiz";
     showScreen("screen-ranking");
 
-    // 응원법이면 방금 한 방식(외치기/타이핑)의 순위를 보여줍니다
-    if (mode === "chant" && pending && pending.mode === "chant" && pending.input) {
-      $("#rankInput").value = pending.input;
-    }
+    // 방금 한 방식의 순위를 바로 보여줍니다
+    const want = pending && pending.mode === mode ? pending.input : null;
     setMode(mode);
+    if (want && !$("#rankInput").hidden) { $("#rankInput").value = want; load(); }
     if (songId) { $("#rankSong").value = songId; load(); }
   }
 
@@ -3730,9 +3834,31 @@ const Ranking = (() => {
     $("#tabLyrics").classList.toggle("is-on", mode === "lyrics");
     $("#tabChant").classList.toggle("is-on", mode === "chant");
     $("#rankSong").hidden = mode === "quiz";
-    $("#rankInput").hidden = !(mode === "chant" && feature("chantVoice"));
+    fillInputPicker(mode);
     if (mode !== "quiz") fillSongs(mode);
     load();
+  }
+
+  /* ---- 방식 고르는 칸 ----
+     응원법과 퀴즈는 답하는 방식이 두 가지씩 있고, 방식마다 난이도가 달라서
+     순위를 따로 매깁니다. 모드에 따라 보기 이름이 바뀝니다. */
+  function fillInputPicker(mode) {
+    const box = $("#rankInput");
+    const opts = mode === "chant" ? [["voice", "🎤 외치기"], ["typing", "⌨️ 타이핑"]]
+               : mode === "quiz"  ? [["choice", "🔘 객관식"], ["typing", "⌨️ 주관식"]]
+               : null;
+    if (!opts) { box.hidden = true; return; }
+
+    const keep = box.value;
+    box.replaceChildren();
+    opts.forEach(([v, label]) => {
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = label;
+      box.appendChild(o);
+    });
+    if (opts.some(([v]) => v === keep)) box.value = keep;
+    box.hidden = false;
   }
 
   /** 모드에 맞는 곡만 선택 목록에 채웁니다 */
@@ -3760,7 +3886,7 @@ const Ranking = (() => {
     list.innerHTML = '<p class="rank-empty">불러오는 중…</p>';
     try {
       const songId = lastMode === "quiz" ? null : $("#rankSong").value;
-      const inputKind = lastMode === "chant" && feature("chantVoice") ? $("#rankInput").value : null;
+      const inputKind = $("#rankInput").hidden ? null : $("#rankInput").value;
       const rows = await fetchTop(lastMode, songId, inputKind);
       if (my !== loadSeq) return;          // 그 사이에 다른 탭을 눌렀으면 버립니다
       paint(rows);
@@ -4045,10 +4171,11 @@ function init() {
   $("#btnHomeFromLyrics").addEventListener("click", goHome);
 
   // ---- 퀴즈 모드 ----
-  $("#btnQuizStart").addEventListener("click", () => Quiz.start());
+  $("#btnQuizChoice").addEventListener("click", () => Quiz.start("choice"));
+  $("#btnQuizTyping").addEventListener("click", () => Quiz.start("typing"));
   $("#btnHomeFromQuizIntro").addEventListener("click", goHome);
   $("#btnQuitQuiz").addEventListener("click", () => { Quiz.quit(); goHome(); });
-  $("#btnRetryQuiz").addEventListener("click", () => Quiz.start());
+  $("#btnRetryQuiz").addEventListener("click", () => Quiz.retry());
   $("#btnHomeFromQuiz").addEventListener("click", goHome);
 
   // ---- 스페이스바로 화면이 스크롤되는 브라우저 기본 동작 차단 ----

@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 19;
+      var VER = 21;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -264,8 +264,8 @@
         <p class="page-head__eyebrow">모드 03</p>
         <h2 class="page-head__title">인트로 퀴즈 스피드런</h2>
         <p class="page-head__sub">
-          곡의 도입부가 순서대로 재생됩니다. 곡 제목을 타이핑하고 Enter를 누르세요.<br />
-          모든 문제를 맞히는 데 걸린 <b>전체 시간</b>을 잽니다.
+          곡의 도입부가 순서대로 재생됩니다. 모든 문제를 맞히는 데 걸린 <b>전체 시간</b>을 잽니다.<br />
+          답하는 방식을 고르세요. <b>순위는 방식별로 따로</b> 매깁니다.
         </p>
       </div>
 
@@ -274,8 +274,28 @@
         <div class="stat"><i>내 최고 기록</i><b id="qiBest">--</b><em>Best</em></div>
       </div>
 
+      <!-- 답하는 방식 고르기 -->
+      <div class="pick-row">
+        <button class="pick-card" id="btnQuizChoice" type="button">
+          <span class="pick-card__tag">객관식</span>
+          <span class="pick-card__title">보기에서 고르기</span>
+          <span class="pick-card__desc">
+            제목 네 개 중에 하나를 누릅니다.<br />휴대폰에서도 편하고 훨씬 빠릅니다.
+          </span>
+          <span class="pick-card__go">이걸로 하기 →</span>
+        </button>
+
+        <button class="pick-card" id="btnQuizTyping" type="button">
+          <span class="pick-card__tag">주관식</span>
+          <span class="pick-card__title">제목 직접 쓰기</span>
+          <span class="pick-card__desc">
+            곡 제목을 타이핑하고 Enter.<br />제대로 아는지 확인하려면 이쪽입니다.
+          </span>
+          <span class="pick-card__go">이걸로 하기 →</span>
+        </button>
+      </div>
+
       <div class="btn-row">
-        <button class="solid-btn" id="btnQuizStart" type="button">스피드런 시작</button>
         <button class="ghost-btn" id="btnHomeFromQuizIntro" type="button">시작 화면</button>
       </div>
     </section>
@@ -305,6 +325,9 @@
         <input class="quiz-input" id="quizInput" type="text" placeholder="곡 제목을 입력하고 Enter"
                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                aria-label="곡 제목 입력" />
+
+        <!-- 객관식일 때만 : 보기 네 개 (숫자 키로도 고를 수 있습니다) -->
+        <div class="quiz-choices" id="quizChoices" hidden></div>
 
         <p class="quiz-hint" id="quizHint"></p>
 
@@ -911,7 +934,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 19;
+      var VER = 21;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
