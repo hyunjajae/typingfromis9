@@ -10,7 +10,7 @@
 |---|---|
 | **01 응원법 외우기** | 마이크에 대고 **직접 외치거나** 키보드로 쳐서 응원법을 익힙니다. 노래는 멈추지 않고, 응원 구간이 뜨면 박자를 맞춰야 성공. 가사가 같이 흘러서 노래를 따라갈 수 있습니다. |
 | **02 가사 타이핑** | 노래를 들으며 흘러나오는 가사를 실시간으로 따라 칩니다. 정확도·타수(CPM)·소요 시간을 기록합니다. |
-| **03 인트로 퀴즈** | 여러 곡의 도입부가 순서대로 재생됩니다. 곡 제목을 최대한 빨리 타이핑하는 **스피드런**. |
+| **03 인트로 퀴즈** | 여러 곡의 도입부가 순서대로 재생됩니다. **객관식**(보기 4개 중 고르기) 또는 **주관식**(제목 타이핑) 으로 답하는 **스피드런**. |
 
 각 모드는 `data/features.js` 로 하나씩 켜고 끌 수 있습니다.
 
@@ -565,6 +565,37 @@ create index if not exists scores_chant_input_idx on scores (mode, song_id, inpu
 > 2번을 꼭 같이 실행하세요. 안 하면 예전 기록이 어느 쪽에도 안 나옵니다.
 
 랭킹 화면의 응원법 탭에서 **🎤 외치기 / ⌨️ 타이핑** 을 골라서 각각 볼 수 있습니다.
+
+---
+
+### 인트로 퀴즈 객관식 랭킹 켜기 — SQL 한 번 더
+
+인트로 퀴즈도 **객관식 / 주관식** 두 가지가 됐습니다.
+객관식은 누르기만 하면 되니 주관식보다 훨씬 빠릅니다. 순위를 섞으면 안 되겠죠.
+
+응원법에서 쓰던 `input` 칸을 그대로 씁니다. 거기에 `'choice'` 를 넣을 수 있게 해주면 됩니다.
+
+**안 하면** 객관식 기록 등록이 `400` 으로 막히고, **기존 퀴즈 기록 전부가 랭킹에서 사라집니다.**
+(`input` 이 비어 있어서 어느 쪽에도 안 잡힙니다)
+
+Supabase → **SQL Editor** → **New query** 에 아래를 붙여넣고 **Run**:
+
+```sql
+-- 1) input 값에 'choice'(객관식) 를 추가
+alter table scores drop constraint if exists "input_값";
+alter table scores add  constraint "input_값"
+  check (input is null or input in ('voice', 'typing', 'choice'));
+
+-- 2) 기존 퀴즈 기록은 전부 주관식이므로 그렇게 채워둡니다  ★ 꼭 같이 실행
+update scores set input = 'typing' where mode = 'quiz' and input is null;
+
+-- 3) 순위 조회를 빠르게
+create index if not exists scores_quiz_input_idx on scores (mode, input, seconds);
+```
+
+> `Success. No rows returned` 또는 `UPDATE 152` 처럼 나오면 성공입니다.
+
+랭킹 화면의 인트로 퀴즈 탭에서 **🔘 객관식 / ⌨️ 주관식** 을 골라 각각 볼 수 있습니다.
 
 ### ⚠️ 무료 플랜은 7일 쉬면 잠듭니다 — 자동 깨우기
 
