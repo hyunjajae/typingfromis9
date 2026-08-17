@@ -1955,9 +1955,49 @@ html[data-theme="dark"] .ready-step.is-done .ready-step__no { color: #06120d; }
 }
 .pick-card__go { display: block; font-size: 13.5px; font-weight: 600; color: var(--accent); }
 
+/* 카드 위쪽에 그 방식이 어떻게 생겼는지 작게 보여줍니다 (심심하지 않게) */
+.pick-card__demo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 74px;
+  margin: -4px 0 16px;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(120% 140% at 50% 0%, var(--accent-soft) 0%, transparent 70%),
+    var(--bg);
+  overflow: hidden;
+}
+/* 객관식 : 보기 알약 네 개 (하나만 켜져 있음) */
+.pick-demo__opt {
+  width: 34px; height: 13px;
+  border-radius: 999px;
+  background-color: var(--line-strong);
+  opacity: .7;
+}
+.pick-demo__opt.is-on { background-color: var(--accent); opacity: 1; width: 44px; }
+/* 주관식 : 글자 칸 + 깜빡이는 커서 */
+.pick-demo__cell {
+  width: 13px; height: 20px;
+  border-bottom: 2px solid var(--cell-line);
+}
+.pick-demo__cell.is-ok { border-bottom-color: var(--accent); }
+.pick-demo__cur {
+  width: 2px; height: 20px;
+  background-color: var(--accent);
+  animation: pick-blink 1.1s steps(1) infinite;
+}
+@keyframes pick-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .pick-demo__cur { animation: none; } }
+
+/* 아래 "시작 화면" 버튼이 카드에 붙어 있었습니다 (.btn-row 에 위 여백이 없어서) */
+#screen-quiz-intro .btn-row { margin-top: 34px; }
+
 @media (max-width: 620px) {
   .pick-row { grid-template-columns: 1fr; }
   .pick-card { padding: 20px 20px; }
+  .pick-card__demo { height: 62px; }
 }
 
 /* ---------- 10. 퀴즈 무대 ---------- */

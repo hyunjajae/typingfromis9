@@ -13,7 +13,7 @@
   <script>
     (function () {
       // 아래 script 의 VER 과 같은 값으로 맞춰주세요
-      var VER = 21;
+      var VER = 22;
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";
       document.write('<link rel="stylesheet" href="style.css' +
@@ -277,6 +277,12 @@
       <!-- 답하는 방식 고르기 -->
       <div class="pick-row">
         <button class="pick-card" id="btnQuizChoice" type="button">
+          <span class="pick-card__demo">
+            <span class="pick-demo__opt"></span>
+            <span class="pick-demo__opt is-on"></span>
+            <span class="pick-demo__opt"></span>
+            <span class="pick-demo__opt"></span>
+          </span>
           <span class="pick-card__tag">객관식</span>
           <span class="pick-card__title">보기에서 고르기</span>
           <span class="pick-card__desc">
@@ -286,6 +292,14 @@
         </button>
 
         <button class="pick-card" id="btnQuizTyping" type="button">
+          <span class="pick-card__demo">
+            <span class="pick-demo__cell is-ok"></span>
+            <span class="pick-demo__cell is-ok"></span>
+            <span class="pick-demo__cell is-ok"></span>
+            <span class="pick-demo__cur"></span>
+            <span class="pick-demo__cell"></span>
+            <span class="pick-demo__cell"></span>
+          </span>
           <span class="pick-card__tag">주관식</span>
           <span class="pick-card__title">제목 직접 쓰기</span>
           <span class="pick-card__desc">
@@ -934,7 +948,7 @@
       /* ★ 코드를 고쳐서 올릴 때는 아래 숫자를 1 올려주세요 ★
          안 올리면 이미 방문했던 사람은 브라우저에 남은 옛날 파일을 계속 씁니다.
          (고쳤는데 왜 그대로냐 싶은 일이 이것 때문에 생깁니다) */
-      var VER = 21;
+      var VER = 22;
 
       var host = location.hostname;
       var dev = host === "localhost" || host === "127.0.0.1" || location.protocol === "file:";

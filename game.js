@@ -1318,12 +1318,18 @@ const Quiz = (() => {
     const bc = loadBest(pool.length, "choice");
     const best = (bt && bc) ? (bc.sec < bt.sec ? bc : bt) : (bt || bc);
     $("#qiBest").textContent = best ? fmtClock(best.sec) : "--";
+
+    /* 안내 화면 배경으로 멤버 사진을 흐리게 깝니다.
+       ★ 앨범 커버는 쓰면 안 됩니다. 그게 곧 정답이라 문제가 새어나갑니다.
+         (연습 화면에 들어가면 아래 start() 에서 배경을 지웁니다) */
+    setStageBg(randomArt());
     showScreen("screen-quiz-intro");
   }
 
   /* ---- 스피드런 시작 ---- */
   function start(h) {
     how = h === "choice" ? "choice" : "typing";
+    setStageBg("");            // 퀴즈 중에는 배경을 비웁니다 (집중·정답 유출 방지)
     queue = shuffle(SONGS.filter((s) => s.intro));
     qi = 0;
     wrong = 0;
@@ -4090,6 +4096,13 @@ function initKeyboardWatch() {
    같은 사진이 연달아 나오지 않도록 직전에 쓴 건 피합니다. */
 
 let lastArt = "";
+
+/** 결과 사진 목록에서 한 장 (퀴즈 안내 화면 배경으로도 씁니다) */
+function randomArt() {
+  const list = (typeof RESULT_ART !== "undefined") ? RESULT_ART : [];
+  if (!list.length) return "";
+  return list[Math.floor(Math.random() * list.length)];
+}
 
 function pickResultArt(sel) {
   const fig = $(sel);
