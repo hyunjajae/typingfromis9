@@ -52,7 +52,7 @@
    ========================================================================= */
 const SONG_ORDER = [
   "vitaminme",      // Vitamin ME
-  "whitememories",  // 하얀 그리움 (White Memories)
+  "whitememories",  // 하얀 그리움
   "likeyoubetter",  // LIKE YOU BETTER
   "rebelutional",   // REBELUTIONAL
   "lovedisaster",   // Love=Disaster
@@ -1685,8 +1685,9 @@ const SONGS = [
   /* ---------- 16 ---------- */
   {
     id: "whitememories",
-    title: "White Memories",
-    titleAliases: ["화이트 메모리즈", "화이트메모리스", "하얀 그리움", "하얀그리움"],
+    title: "하얀 그리움",
+    // 제목을 한글로 바꿨으니, 영어 표기도 정답으로 인정합니다
+    titleAliases: ["White Memories", "화이트 메모리즈", "화이트메모리스"],
     album: "하얀 그리움",
     color: "#cfd9e8",
     cover: "covers/white-memories.jpg",
